@@ -11,11 +11,18 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
+import type {
+  S3ClientConfig,
+  PutObjectCommandInput,
+  DeleteObjectCommandInput,
+  PutObjectCommandOutput,
+  DeleteObjectCommandOutput, // <-- FIX: Menambahkan import ini
+} from '@aws-sdk/client-s3';
 import {
   RawUploadedFile,
   StoredFile,
 } from '../../domains/entities/stored-file.entity';
-import { IStorageAdapter } from './storage.adapter.interface';
+import type { IStorageAdapter } from './storage.adapter.interface';
 
 @Injectable()
 export class S3StorageAdapter implements IStorageAdapter {
@@ -30,18 +37,24 @@ export class S3StorageAdapter implements IStorageAdapter {
     this.bucket = this.config.getOrThrow<string>('AWS_S3_BUCKET');
     this.cdnBaseUrl = this.config.get<string>('AWS_CLOUDFRONT_URL') ?? null;
 
-    this.client = new S3Client({
+    const s3Config: S3ClientConfig = {
       region: this.region,
       credentials: {
         accessKeyId: this.config.getOrThrow<string>('AWS_ACCESS_KEY_ID'),
-        secretAccessKey: this.config.getOrThrow<string>('AWS_SECRET_ACCESS_KEY'),
+        secretAccessKey: this.config.getOrThrow<string>(
+          'AWS_SECRET_ACCESS_KEY',
+        ),
       },
-    });
+    };
+
+    // Reason: ESLint strict mode fails to resolve AWS SDK v3 class constructor types.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+    this.client = new S3Client(s3Config);
   }
 
   async upload(file: RawUploadedFile, fileKey: string): Promise<StoredFile> {
     try {
-      const command = new PutObjectCommand({
+      const putCommandInput: PutObjectCommandInput = {
         Bucket: this.bucket,
         Key: fileKey,
         Body: file.buffer,
@@ -50,9 +63,14 @@ export class S3StorageAdapter implements IStorageAdapter {
         Metadata: {
           originalName: encodeURIComponent(file.originalName),
         },
-      });
+      };
 
-      await this.client.send(command);
+      // Reason: ESLint strict mode fails to resolve AWS SDK v3 class constructor types.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const command = new PutObjectCommand(putCommandInput);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      await (this.client.send(command) as Promise<PutObjectCommandOutput>);
 
       this.logger.log(`[S3] File uploaded → s3://${this.bucket}/${fileKey}`);
 
@@ -69,8 +87,13 @@ export class S3StorageAdapter implements IStorageAdapter {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`[S3] Upload failed → ${message}`);
 
-      if (message.includes('NetworkingError') || message.includes('ECONNREFUSED')) {
-        throw new ServiceUnavailableException('AWS S3 tidak dapat dijangkau saat ini');
+      if (
+        message.includes('NetworkingError') ||
+        message.includes('ECONNREFUSED')
+      ) {
+        throw new ServiceUnavailableException(
+          'AWS S3 tidak dapat dijangkau saat ini',
+        );
       }
 
       throw new InternalServerErrorException(
@@ -81,12 +104,18 @@ export class S3StorageAdapter implements IStorageAdapter {
 
   async delete(fileKey: string): Promise<void> {
     try {
-      const command = new DeleteObjectCommand({
+      const deleteCommandInput: DeleteObjectCommandInput = {
         Bucket: this.bucket,
         Key: fileKey,
-      });
+      };
 
-      await this.client.send(command);
+      // Reason: ESLint strict mode fails to resolve AWS SDK v3 class constructor types.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment
+      const command = new DeleteObjectCommand(deleteCommandInput);
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      await (this.client.send(command) as Promise<DeleteObjectCommandOutput>);
+
       this.logger.log(`[S3] File deleted → s3://${this.bucket}/${fileKey}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -95,7 +124,7 @@ export class S3StorageAdapter implements IStorageAdapter {
   }
 
   buildPublicUrl(fileKey: string): string {
-    if (this.cdnBaseUrl) {
+    if (this.cdnBaseUrl !== null) {
       return `${this.cdnBaseUrl}/${fileKey}`;
     }
     return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${fileKey}`;

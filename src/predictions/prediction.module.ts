@@ -1,6 +1,7 @@
 // src/predictions/prediction.module.ts
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 
 // Entity
 import { PredictionEntity } from './domains/entities/prediction.entity';
@@ -26,7 +27,8 @@ import { PredictionOrchestrator } from './applications/orchestrator/prediction.o
 import { PredictionController } from './interface/http/prediction.controller';
 
 // Events & Listeners
-import { PredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
+import { AiPredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
+import { AiIntegrationModule } from '../ai-integration/ai-integration.module';
 
 const USE_CASES = [
   CreatePredictionUseCase,
@@ -35,7 +37,11 @@ const USE_CASES = [
 ];
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PredictionEntity])],
+  imports: [
+    TypeOrmModule.forFeature([PredictionEntity]),
+    forwardRef(() => AiIntegrationModule),
+    ConfigModule,
+  ],
   controllers: [PredictionController],
   providers: [
     // ── Repository (Dependency Inversion) ──────────────────────
@@ -54,7 +60,7 @@ const USE_CASES = [
     PredictionOrchestrator,
 
     // ── Event Listeners ────────────────────────────────────────
-    PredictionCreatedListener,
+    AiPredictionCreatedListener,
   ],
   exports: [
     PREDICTION_REPOSITORY_TOKEN,

@@ -4,6 +4,7 @@ import { UploadFileDto } from '../dto/upload-file.dto';
 import { StorageResponseDto } from '../dto/storage-response.dto';
 import { UploadFileUseCase } from '../use-cases/upload-file.use-case';
 import { DeleteFileUseCase } from '../use-cases/delete-file.use-case';
+import type { IUploadedFile } from '../../domains/mappers/storage.mapper';
 
 @Injectable()
 export class StorageOrchestrator {
@@ -13,7 +14,7 @@ export class StorageOrchestrator {
   ) {}
 
   upload(
-    file: Express.Multer.File | undefined,
+    file: IUploadedFile | undefined | null,
     dto: UploadFileDto,
   ): Promise<StorageResponseDto> {
     return this.uploadFile.execute(file, dto);

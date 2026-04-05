@@ -6,12 +6,20 @@ import {
 } from '@nestjs/common';
 import { StorageDomainService } from '../services/storage-domain.service';
 
+export interface IUploadedFile {
+  mimetype: string;
+  size: number;
+  originalname: string;
+  buffer: Buffer;
+}
+
 @Injectable()
 export class FileValidator {
   constructor(private readonly domainService: StorageDomainService) {}
 
   assertFilePresent(
-    file: Express.Multer.File | undefined): asserts file is Express.Multer.File {
+    file: IUploadedFile | undefined | null,
+  ): asserts file is IUploadedFile {
     if (!file) {
       throw new UnprocessableEntityException(
         'File wajib disertakan dalam request',
@@ -38,8 +46,10 @@ export class FileValidator {
   }
 
   assertAll(
-    file: Express.Multer.File | undefined): asserts file is Express.Multer.File {
+    file: IUploadedFile | undefined | null,
+  ): asserts file is IUploadedFile {
     this.assertFilePresent(file);
+
     this.assertAllowedMimeType(file.mimetype);
     this.assertWithinSizeLimit(file.size);
   }

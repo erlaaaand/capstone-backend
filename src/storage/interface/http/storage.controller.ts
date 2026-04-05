@@ -37,9 +37,11 @@ export class StorageController {
   @UseGuards(FileSizeGuard)
   @UseInterceptors(FileUploadInterceptor)
   upload(
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() dto: UploadFileDto,
   ): Promise<StorageResponseDto> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     return this.orchestrator.upload(file, dto);
   }
 
@@ -50,7 +52,11 @@ export class StorageController {
    */
   @Delete(':fileKey')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('fileKey') encodedFileKey: string): Promise<void> {
+  // FIX: Removed `async` keyword — the method body is a single `return`
+  //      of an already-async operation. Adding `async` wraps it in an extra
+  //      Promise, which triggers `@typescript-eslint/require-await` because
+  //      there is no `await` expression in the function body.
+  delete(@Param('fileKey') encodedFileKey: string): Promise<void> {
     const fileKey = Buffer.from(encodedFileKey, 'base64').toString('utf-8');
     return this.orchestrator.delete(fileKey);
   }

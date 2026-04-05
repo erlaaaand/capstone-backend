@@ -40,6 +40,7 @@ import { AuthModule } from '../auth/auth.module';
      * Menyajikan file dari folder uploads/ secara publik.
      * Contoh URL: http://localhost:3000/uploads/predictions/userId/file.jpg
      */
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     ServeStaticModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

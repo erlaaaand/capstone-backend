@@ -1,12 +1,18 @@
 // src/storage/domains/mappers/storage.mapper.ts
 import { Injectable } from '@nestjs/common';
-import { StoredFile } from '../entities/stored-file.entity';
+import { StoredFile, RawUploadedFile } from '../entities/stored-file.entity';
 import { StorageResponseDto } from '../../applications/dto/storage-response.dto';
-import { RawUploadedFile } from '../entities/stored-file.entity';
+
+export interface IUploadedFile {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
 
 @Injectable()
 export class StorageMapper {
-  toRawUploadedFile(file: Express.Multer.File): RawUploadedFile {
+  toRawUploadedFile(file: IUploadedFile): RawUploadedFile {
     return {
       buffer: file.buffer,
       originalName: file.originalname,

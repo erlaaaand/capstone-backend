@@ -1,5 +1,5 @@
 // src/ai-integration/ai-integration.module.ts
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 
 // Adapter
 import { AiHttpAdapter } from './infrastructures/repositories/ai-http.adapter';
@@ -25,7 +25,7 @@ import { PredictionModule } from '../predictions/prediction.module';
 @Module({
   imports: [
     // Butuh PREDICTION_REPOSITORY_TOKEN untuk updateResult & markAsFailed
-    PredictionModule,
+    forwardRef(() => PredictionModule),
   ],
   providers: [
     // ── AI HTTP Adapter (Dependency Inversion) ─────────────────
