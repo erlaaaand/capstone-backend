@@ -43,14 +43,24 @@ export class PredictionRepository implements IPredictionRepository {
   ): Promise<PredictionEntity> {
     await this.ormRepo.update(id, {
       varietyCode: result.varietyCode,
+      varietyName: result.varietyName,
+      localName: result.localName,
+      origin: result.origin,
+      description: result.description,
       confidenceScore: result.confidenceScore,
+      imageEnhanced: result.imageEnhanced,
+      inferenceTimeMs: result.inferenceTimeMs,
       status: PredictionStatus.SUCCESS,
     });
 
     const updated = await this.findById(id);
+
     if (!updated) {
-      throw new Error(`Prediction id '${id}' tidak ditemukan setelah update`);
+      throw new Error(
+        `Prediction id '${id}' tidak ditemukan setelah updateResult.`,
+      );
     }
+
     return updated;
   }
 

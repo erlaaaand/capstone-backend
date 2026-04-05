@@ -34,7 +34,7 @@ export class ProcessPredictionUseCase {
       // 1. Kirim ke FastAPI
       const rawResult = await this.aiAdapter.predict(request);
 
-      // 2. Validasi response domain
+      // 2. Validasi response domain (variety_code, confidence_score, variety_name)
       this.validator.assertValidResult(rawResult);
 
       // 3. Map ke payload repository
@@ -46,9 +46,11 @@ export class ProcessPredictionUseCase {
       this.logger.log(
         `[ProcessPrediction] SUCCESS → id=${predictionId}, ` +
           `variety=${payload.varietyCode}, ` +
-          `confidence=${payload.confidenceScore}`,
+          `confidence=${payload.confidenceScore}, ` +
+          `enhanced=${payload.imageEnhanced}`,
       );
     } catch (err: unknown) {
+      // Narrow `unknown` ke string reason sebelum digunakan
       const reason =
         err instanceof Error ? err.message : 'Unknown error dari AI service';
 
@@ -56,13 +58,17 @@ export class ProcessPredictionUseCase {
         `[ProcessPrediction] FAILED → id=${predictionId}, reason=${reason}`,
       );
 
-      // 5. Update prediction record → FAILED (fire-and-forget, jangan re-throw)
+      // Fire-and-forget markAsFailed — jangan re-throw agar event listener tidak crash
       await this.predictionRepo
         .markAsFailed(predictionId, reason)
         .catch((markErr: unknown) => {
+          // Narrow markErr sebelum logging — mencegah ESLint no-unsafe-argument
+          const markErrMessage =
+            markErr instanceof Error ? markErr.message : String(markErr);
+
           this.logger.error(
-            `[ProcessPrediction] Gagal markAsFailed → id=${predictionId}`,
-            markErr,
+            `[ProcessPrediction] Gagal markAsFailed → id=${predictionId}, ` +
+              `reason=${markErrMessage}`,
           );
         });
     }

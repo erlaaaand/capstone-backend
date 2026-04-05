@@ -1,7 +1,9 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { validate } from './config/env.validation';
 import { UserEntity } from './users/domains/entities/user.entity';
 import { PredictionEntity } from './predictions/domains/entities/prediction.entity';
@@ -27,6 +29,13 @@ import { AiIntegrationModule } from './ai-integration/ai-integration.module';
       wildcard: false,
       global: true,
     }),
+
+    // ── Global Scheduler ──────────────────────────────────────
+    // WAJIB ada di AppModule (root module) agar @Cron di feature
+    // module terdaftar dengan benar.
+    // Jangan panggil ScheduleModule.forRoot() di feature module
+    // karena bisa menyebabkan cron tidak terdaftar atau duplikat.
+    ScheduleModule.forRoot(),
 
     // ── Database ──────────────────────────────────────────────
     TypeOrmModule.forRootAsync({

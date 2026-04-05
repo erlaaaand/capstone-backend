@@ -9,8 +9,17 @@ export class PredictionMapper {
     return {
       id: entity.id,
       userId: entity.userId,
+      // ── AI Result — Core ──────────────────────────────────────
       varietyCode: entity.varietyCode,
+      varietyName: entity.varietyName,
+      localName: entity.localName,
+      origin: entity.origin,
+      description: entity.description,
       confidenceScore: entity.confidenceScore,
+      // ── AI Result — Metadata ──────────────────────────────────
+      imageEnhanced: entity.imageEnhanced,
+      inferenceTimeMs: entity.inferenceTimeMs,
+      // ── Image & Status ────────────────────────────────────────
       imageUrl: entity.imageUrl,
       status: entity.status,
       errorMessage: entity.errorMessage,

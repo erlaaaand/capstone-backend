@@ -5,17 +5,27 @@ import { PredictionResultPayload } from '../../../predictions/infrastructures/re
 
 @Injectable()
 export class AiResponseMapper {
+  /**
+   * Memetakan AiPredictResultDto (internal domain) ke PredictionResultPayload
+   * yang digunakan untuk update database via IPredictionRepository.
+   */
   toPredictionResultPayload(
     result: AiPredictResultDto,
   ): PredictionResultPayload {
     return {
       varietyCode: result.varietyCode.trim().toUpperCase(),
+      varietyName: result.varietyName.trim(),
+      localName: result.localName.trim(),
+      origin: result.origin.trim(),
+      description: result.description.trim(),
       confidenceScore: this.normalizeScore(result.confidenceScore),
+      imageEnhanced: result.imageEnhanced,
+      inferenceTimeMs: result.inferenceTimeMs,
     };
   }
 
   private normalizeScore(score: number): number {
-    // Pastikan presisi 4 desimal konsisten dengan definisi kolom DB decimal(5,4)
+    // Presisi 4 desimal konsisten dengan kolom DB decimal(5,4)
     return parseFloat(score.toFixed(4));
   }
 }
