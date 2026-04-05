@@ -1,7 +1,6 @@
 // src/predictions/prediction.module.ts
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule } from '@nestjs/config';
 
 // Entity
 import { PredictionEntity } from './domains/entities/prediction.entity';
@@ -27,8 +26,7 @@ import { PredictionOrchestrator } from './applications/orchestrator/prediction.o
 import { PredictionController } from './interface/http/prediction.controller';
 
 // Events & Listeners
-import { AiPredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
-import { AiIntegrationModule } from '../ai-integration/ai-integration.module';
+import { PredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
 
 const USE_CASES = [
   CreatePredictionUseCase,
@@ -39,8 +37,8 @@ const USE_CASES = [
 @Module({
   imports: [
     TypeOrmModule.forFeature([PredictionEntity]),
-    forwardRef(() => AiIntegrationModule),
-    ConfigModule,
+    // FIX: Hapus forwardRef ke AiIntegrationModule dan ConfigModule —
+    //      keduanya tidak dibutuhkan di sini setelah listener dipindahkan.
   ],
   controllers: [PredictionController],
   providers: [
@@ -60,7 +58,10 @@ const USE_CASES = [
     PredictionOrchestrator,
 
     // ── Event Listeners ────────────────────────────────────────
-    AiPredictionCreatedListener,
+    // FIX: Hanya PredictionCreatedListener (logger saja) yang tetap di sini.
+    //      AiPredictionCreatedListener DIPINDAHKAN ke AiIntegrationModule
+    //      karena dia butuh AiIntegrationOrchestrator & AiIntegrationDomainService.
+    PredictionCreatedListener,
   ],
   exports: [
     PREDICTION_REPOSITORY_TOKEN,

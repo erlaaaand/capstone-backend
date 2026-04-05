@@ -1,5 +1,5 @@
 // src/ai-integration/ai-integration.module.ts
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 
 // Adapter
 import { AiHttpAdapter } from './infrastructures/repositories/ai-http.adapter';
@@ -16,19 +16,16 @@ import { ProcessPredictionUseCase } from './applications/use-cases/process-predi
 // Orchestrator
 import { AiIntegrationOrchestrator } from './applications/orchestrator/ai-integration.orchestrator';
 
-// Listener
+// Listener — INI tempat yang benar untuk AiPredictionCreatedListener
 import { AiPredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
 
-// External Module (import token dan repo dari prediction module)
+// External Module
 import { PredictionModule } from '../predictions/prediction.module';
 
 @Module({
-  imports: [
-    // Butuh PREDICTION_REPOSITORY_TOKEN untuk updateResult & markAsFailed
-    forwardRef(() => PredictionModule),
-  ],
+  imports: [PredictionModule],
   providers: [
-    // ── AI HTTP Adapter (Dependency Inversion) ─────────────────
+    // ── AI HTTP Adapter ────────────────────────────────────────
     {
       provide: AI_HTTP_ADAPTER_TOKEN,
       useClass: AiHttpAdapter,
@@ -44,8 +41,9 @@ import { PredictionModule } from '../predictions/prediction.module';
     AiIntegrationOrchestrator,
 
     // ── Event Listener ─────────────────────────────────────────
+    // FIX: Listener ini ada di sini karena butuh AiIntegrationOrchestrator
+    //      dan AiIntegrationDomainService yang keduanya tersedia di module ini.
     AiPredictionCreatedListener,
   ],
-  // Tidak ada exports — module ini adalah consumer murni
 })
 export class AiIntegrationModule {}
