@@ -1,0 +1,31 @@
+// src/auth/applications/dto/register.dto.ts
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+
+export class RegisterDto {
+  @IsEmail({}, { message: 'Format email tidak valid' })
+  @IsNotEmpty({ message: 'Email wajib diisi' })
+  @MaxLength(255)
+  email: string = '';
+
+  @IsString()
+  @IsNotEmpty({ message: 'Password wajib diisi' })
+  @MinLength(8, { message: 'Password minimal 8 karakter' })
+  @MaxLength(128)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+    message: 'Password harus mengandung huruf besar, huruf kecil, dan angka',
+  })
+  password: string = '';
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  fullName?: string;
+}
