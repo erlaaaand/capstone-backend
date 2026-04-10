@@ -9,6 +9,7 @@ import { UserValidator } from '../../domains/validators/user.validator';
 import { USER_REPOSITORY_TOKEN } from '../../infrastructures/repositories/user.repository.interface';
 import type { IUserRepository } from '../../infrastructures/repositories/user.repository.interface';
 import { UserCreatedEvent } from '../../infrastructures/events/user-created.event';
+import { UserEntity } from '../../domains/entities/user.entity';
 
 @Injectable()
 export class CreateUserUseCase {
@@ -22,6 +23,11 @@ export class CreateUserUseCase {
   ) {}
 
   async execute(dto: CreateUserDto): Promise<UserResponseDto> {
+    const user = await this.executeAndReturnEntity(dto);
+    return this.mapper.toResponseDto(user);
+  }
+
+  async executeAndReturnEntity(dto: CreateUserDto): Promise<UserEntity> {
     const sanitizedEmail = this.domainService.sanitizeEmail(dto.email);
 
     const emailTaken = await this.userRepo.existsByEmail(sanitizedEmail);
@@ -40,6 +46,6 @@ export class CreateUserUseCase {
       new UserCreatedEvent(user.id, user.email, user.fullName, new Date()),
     );
 
-    return this.mapper.toResponseDto(user);
+    return user;
   }
 }
