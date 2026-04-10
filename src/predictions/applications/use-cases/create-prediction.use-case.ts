@@ -1,5 +1,9 @@
 // src/predictions/applications/use-cases/create-prediction.use-case.ts
-import { Inject, Injectable } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreatePredictionDto } from '../dto/create-prediction.dto';
 import { PredictionResponseDto } from '../dto/prediction-response.dto';
@@ -17,9 +21,30 @@ export class CreatePredictionUseCase {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async execute(dto: CreatePredictionDto): Promise<PredictionResponseDto> {
+  /**
+   * FIX [CRITICAL-02]: userId sekarang diterima sebagai parameter
+   * terpisah — diambil dari JWT token oleh controller,
+   * BUKAN dari request body (eliminasi IDOR vulnerability).
+   *
+   * FIX [CRITICAL-03]: Validasi keamanan imageUrl dilakukan
+   * di use case layer sebelum data disimpan ke database.
+   */
+  async execute(
+    dto: CreatePredictionDto,
+    authenticatedUserId: string,
+  ): Promise<PredictionResponseDto> {
+    // Validasi keamanan URL — cegah SSRF dan path traversal
+    if (!CreatePredictionDto.isSafeImageUrl(dto.imageUrl)) {
+      throw new UnprocessableEntityException(
+        'imageUrl tidak valid: protokol tidak diizinkan atau ' +
+          'mengarah ke alamat jaringan internal yang diblokir.',
+      );
+    }
+
     const prediction = await this.predictionRepo.create({
-      userId: dto.userId,
+      // FIX [CRITICAL-02]: Gunakan authenticatedUserId dari JWT,
+      // bukan dari dto — client tidak bisa menentukan userId sendiri
+      userId: authenticatedUserId,
       imageUrl: dto.imageUrl,
     });
 

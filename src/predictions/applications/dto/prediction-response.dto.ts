@@ -23,3 +23,16 @@ export class PredictionResponseDto {
   errorMessage: string | null = null;
   createdAt: Date = new Date();
 }
+
+/**
+ * Response wrapper untuk list endpoint dengan pagination.
+ * FIX [INFO-03]: Struktur pagination ditambahkan untuk
+ * mendukung query findAllByUserId yang terpaginasi.
+ */
+export class PaginatedPredictionResponseDto {
+  data: PredictionResponseDto[] = [];
+  total: number = 0;
+  page: number = 1;
+  limit: number = 10;
+  totalPages: number = 0;
+}

@@ -1,7 +1,11 @@
 // src/predictions/applications/orchestrator/prediction.orchestrator.ts
 import { Injectable } from '@nestjs/common';
 import { CreatePredictionDto } from '../dto/create-prediction.dto';
-import { PredictionResponseDto } from '../dto/prediction-response.dto';
+import {
+  PaginatedPredictionResponseDto,
+  PredictionResponseDto,
+} from '../dto/prediction-response.dto';
+import { FindPredictionsQueryDto } from '../dto/find-predictions-query.dto';
 import { CreatePredictionUseCase } from '../use-cases/create-prediction.use-case';
 import { FindPredictionByIdUseCase } from '../use-cases/find-prediction-by-id.use-case';
 import { FindPredictionsByUserUseCase } from '../use-cases/find-predictions-by-user.use-case';
@@ -14,8 +18,15 @@ export class PredictionOrchestrator {
     private readonly findByUser: FindPredictionsByUserUseCase,
   ) {}
 
-  create(dto: CreatePredictionDto): Promise<PredictionResponseDto> {
-    return this.createPrediction.execute(dto);
+  /**
+   * FIX [CRITICAL-02]: Tambah parameter authenticatedUserId
+   * yang akan di-pass dari controller via @CurrentUser() decorator.
+   */
+  create(
+    dto: CreatePredictionDto,
+    authenticatedUserId: string,
+  ): Promise<PredictionResponseDto> {
+    return this.createPrediction.execute(dto, authenticatedUserId);
   }
 
   getById(
@@ -25,7 +36,13 @@ export class PredictionOrchestrator {
     return this.findById.execute(id, requestingUserId);
   }
 
-  getAllByUser(userId: string): Promise<PredictionResponseDto[]> {
-    return this.findByUser.execute(userId);
+  /**
+   * FIX [INFO-03]: Tambah parameter query untuk pagination.
+   */
+  getAllByUser(
+    userId: string,
+    query: FindPredictionsQueryDto,
+  ): Promise<PaginatedPredictionResponseDto> {
+    return this.findByUser.execute(userId, query);
   }
 }
