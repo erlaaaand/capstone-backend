@@ -4,6 +4,21 @@ import { PredictionEntity } from '../../domains/entities/prediction.entity';
 export interface IPredictionRepository {
   findById(id: string): Promise<PredictionEntity | null>;
   findAllByUserId(userId: string): Promise<PredictionEntity[]>;
+
+  /**
+   * FIX [INFO-03]: Tambah method pagination yang dipanggil oleh
+   * FindPredictionsByUserUseCase. Sebelumnya method ini tidak ada
+   * di interface sehingga menyebabkan TypeScript error dan runtime crash.
+   *
+   * Return type [PredictionEntity[], number] mengikuti konvensi TypeORM
+   * findAndCount — index 0 adalah data, index 1 adalah total count.
+   */
+  findAllByUserIdPaginated(
+    userId: string,
+    skip: number,
+    limit: number,
+  ): Promise<[PredictionEntity[], number]>;
+
   create(data: Partial<PredictionEntity>): Promise<PredictionEntity>;
   updateResult(
     id: string,

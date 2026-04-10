@@ -32,6 +32,29 @@ export class PredictionRepository implements IPredictionRepository {
     });
   }
 
+  /**
+   * FIX [INFO-03]: Implementasi findAllByUserIdPaginated menggunakan
+   * TypeORM findAndCount untuk efisiensi — satu query yang mengembalikan
+   * data DAN total count sekaligus, tanpa memuat seluruh tabel ke memori.
+   *
+   * @param userId  - UUID pemilik prediksi
+   * @param skip    - jumlah record yang dilewati (offset)
+   * @param limit   - jumlah record yang diambil per halaman
+   * @returns       - tuple [data[], totalCount]
+   */
+  async findAllByUserIdPaginated(
+    userId: string,
+    skip: number,
+    limit: number,
+  ): Promise<[PredictionEntity[], number]> {
+    return this.ormRepo.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
+    });
+  }
+
   async create(data: Partial<PredictionEntity>): Promise<PredictionEntity> {
     const prediction = this.ormRepo.create(data);
     return this.ormRepo.save(prediction);
