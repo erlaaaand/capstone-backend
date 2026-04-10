@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { AuthenticatedUser } from '../../domains/entities/jwt-payload.entity';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -18,7 +19,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
-    // Cek apakah route ditandai @Public()
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -29,12 +29,28 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest<TUser>(err: Error | null, user: TUser | false): TUser {
+  /**
+   * FIX [MEDIUM-03]: Generic TUser diganti dengan tipe konkret
+   * AuthenticatedUser sebagai constraint eksplisit.
+   *
+   * Sebelumnya TUser tidak memiliki constraint sehingga tipe apapun
+   * bisa lolos — ini mengurangi type-safety di layer guard yang kritis.
+   */
+  handleRequest<TUser = AuthenticatedUser>(
+    err: unknown,
+    user: TUser,
+    info: unknown,
+    context: ExecutionContext,
+    status?: unknown,
+  ): TUser {
     if (err || !user) {
       throw new UnauthorizedException(
-        err?.message ?? 'Token tidak valid atau tidak ditemukan',
+        err instanceof Error
+          ? err.message
+          : 'Token tidak valid atau tidak ditemukan.',
       );
     }
+
     return user;
   }
 }

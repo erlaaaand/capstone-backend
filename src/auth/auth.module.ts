@@ -1,8 +1,9 @@
 // src/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import type { StringValue } from 'ms';
 
 // External Modules
 import { UserModule } from '../users/user.module';
@@ -25,7 +26,7 @@ import { AuthOrchestrator } from './applications/orchestrator/auth.orchestrator'
 // Controller
 import { AuthController } from './interface/http/auth.controller';
 
-// Guard (exported untuk dipakai modul lain)
+// Guard
 import { JwtAuthGuard } from './interface/guards/jwt-auth.guard';
 
 // Events & Listeners
@@ -33,50 +34,46 @@ import { UserLoggedInListener } from './infrastructures/listeners/user-logged-in
 
 @Module({
   imports: [
-    // UserModule menyediakan USER_REPOSITORY_TOKEN & CreateUserUseCase
     UserModule,
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
 
+    /**
+     * FIX [HIGH-03]: Tambah issuer dan audience pada JwtModule
+     * agar token yang di-sign selalu menyertakan claim iss dan aud.
+     *
+     * Ini bekerja bersama JwtStrategy yang memvalidasi kedua claim ini
+     * saat token diterima.
+     */
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      useFactory: (config: ConfigService): JwtModuleOptions => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: config.getOrThrow<
-            `${number}d` | `${number}h` | `${number}m` | `${number}s`
-          >('JWT_EXPIRES_IN'),
+          expiresIn: config.getOrThrow<string>('JWT_EXPIRES_IN') as StringValue,
+          issuer: config.getOrThrow<string>('JWT_ISSUER'),
+          audience: config.getOrThrow<string>('JWT_AUDIENCE'),
+        },
+        verifyOptions: {
+          issuer: config.getOrThrow<string>('JWT_ISSUER'),
+          audience: config.getOrThrow<string>('JWT_AUDIENCE'),
         },
       }),
     }),
   ],
   controllers: [AuthController],
   providers: [
-    // ── Infrastructure ─────────────────────────────────────────
     JwtStrategy,
-
-    // ── Domain Layer ───────────────────────────────────────────
     TokenService,
     AuthValidator,
     AuthMapper,
-
-    // ── Application Layer ──────────────────────────────────────
     LoginUseCase,
     RegisterUseCase,
     AuthOrchestrator,
-
-    // ── Guard ──────────────────────────────────────────────────
     JwtAuthGuard,
-
-    // ── Event Listeners ────────────────────────────────────────
     UserLoggedInListener,
   ],
-  exports: [
-    // Guard & decorator di-export agar bisa dipakai module lain
-    JwtAuthGuard,
-    JwtModule,
-    TokenService,
-  ],
+  exports: [JwtAuthGuard, JwtModule, TokenService],
 })
 export class AuthModule {}
