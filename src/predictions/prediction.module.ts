@@ -26,7 +26,7 @@ import { PredictionOrchestrator } from './applications/orchestrator/prediction.o
 import { PredictionController } from './interface/http/prediction.controller';
 
 // Events & Listeners
-import { PredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
+import { AiPredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
 
 const USE_CASES = [
   CreatePredictionUseCase,
@@ -61,7 +61,7 @@ const USE_CASES = [
     // FIX: Hanya PredictionCreatedListener (logger saja) yang tetap di sini.
     //      AiPredictionCreatedListener DIPINDAHKAN ke AiIntegrationModule
     //      karena dia butuh AiIntegrationOrchestrator & AiIntegrationDomainService.
-    PredictionCreatedListener,
+    AiPredictionCreatedListener,
   ],
   exports: [
     PREDICTION_REPOSITORY_TOKEN,

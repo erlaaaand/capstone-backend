@@ -6,8 +6,9 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { setupSwagger } from './swagger.config';
 
-// ── Konstanta Bootstrap ───────────────────────────────────────────────────────
 const JSON_BODY_LIMIT = '1mb';
 
 function buildCorsOrigins(
@@ -16,24 +17,18 @@ function buildCorsOrigins(
 ): string | string[] | boolean {
   if (nodeEnv === 'production') {
     const raw = config.get<string>('ALLOWED_ORIGINS', '');
-
     if (!raw || raw.trim().length === 0) {
       throw new Error(
-        '❌ ALLOWED_ORIGINS wajib diisi di environment production. ' +
-          'Contoh: ALLOWED_ORIGINS=https://app.example.com',
+        '❌ ALLOWED_ORIGINS wajib diisi di environment production.',
       );
     }
-
     return raw
       .split(',')
-      .map((origin) => origin.trim())
-      .filter((origin) => origin.length > 0);
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0);
   }
-
   return '*';
 }
-
-// ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -43,25 +38,25 @@ async function bootstrap(): Promise<void> {
       process.env.NODE_ENV === 'production'
         ? ['error', 'warn', 'log']
         : ['error', 'warn', 'log', 'debug', 'verbose'],
-
     abortOnError: false,
   });
 
-  const config = app.get(ConfigService);
-  const port = config.getOrThrow<number>('PORT');
+  const config  = app.get(ConfigService);
+  const port    = config.getOrThrow<number>('PORT');
   const nodeEnv = config.getOrThrow<string>('NODE_ENV');
 
+  // ── Security Headers ─────────────────────────────────────────
   app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'blob:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
+          defaultSrc:              ["'self'"],
+          scriptSrc:               ["'self'"],
+          styleSrc:                ["'self'", "'unsafe-inline'"], // Swagger UI butuh inline style
+          imgSrc:                  ["'self'", 'data:', 'blob:'],
+          connectSrc:              ["'self'"],
+          fontSrc:                 ["'self'", 'data:'],
+          objectSrc:               ["'none'"],
           upgradeInsecureRequests: [],
         },
       },
@@ -69,46 +64,58 @@ async function bootstrap(): Promise<void> {
         nodeEnv === 'production'
           ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
           : false,
-      frameguard: { action: 'deny' },
-      hidePoweredBy: true,
-      noSniff: true,
-      xssFilter: true,
-      ieNoOpen: true,
-      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      frameguard:       { action: 'deny' },
+      hidePoweredBy:    true,
+      noSniff:          true,
+      xssFilter:        true,
+      ieNoOpen:         true,
+      referrerPolicy:   { policy: 'strict-origin-when-cross-origin' },
     }),
   );
 
   app.use(compression());
-
-  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
+  app.useBodyParser('json',       { limit: JSON_BODY_LIMIT });
   app.useBodyParser('urlencoded', { limit: JSON_BODY_LIMIT, extended: true });
-
   app.setGlobalPrefix('api/v1');
 
+  // ── CORS ─────────────────────────────────────────────────────
   const corsOrigins = buildCorsOrigins(config, nodeEnv);
-
   app.enableCors({
-    origin: corsOrigins,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    origin:         corsOrigins,
+    methods:        ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['X-Request-Id'],
-    credentials: nodeEnv === 'production',
-    maxAge: 86_400,
+    credentials:    nodeEnv === 'production',
+    maxAge:         86_400,
   });
 
+  // ── Global Exception Filter ──────────────────────────────────
+  // FIX: Mencegah stack trace dan pesan error internal bocor ke client
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // ── Global Validation Pipe ───────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
+      whitelist:            true,
       forbidNonWhitelisted: true,
-      transform: true,
+      transform:            true,
       transformOptions: {
         enableImplicitConversion: true,
-        exposeDefaultValues: true,
+        exposeDefaultValues:      true,
       },
-      stopAtFirstError: false,
+      stopAtFirstError:     false,
       disableErrorMessages: false,
     }),
   );
+
+  // ── Swagger / OpenAPI ────────────────────────────────────────
+  // Aktif di development dan staging — nonaktifkan di production
+  // dengan set ENABLE_SWAGGER=false di env
+  const enableSwagger = config.get<string>('ENABLE_SWAGGER', 'true');
+  if (nodeEnv !== 'production' || enableSwagger === 'true') {
+    setupSwagger(app);
+    logger.log(`📖 Swagger docs: http://0.0.0.0:${port}/api/docs`);
+  }
 
   if (nodeEnv === 'production') {
     app.set('trust proxy', 1);
@@ -117,58 +124,37 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
 
   const shutdown = (signal: string): void => {
-    logger.warn(
-      `[Shutdown] Received ${signal} — starting graceful shutdown...`,
-    );
-
+    logger.warn(`[Shutdown] ${signal} received — graceful shutdown...`);
     app
       .close()
-      .then((): void => {
-        logger.log('[Shutdown] Application closed cleanly.');
-        process.exit(0);
-      })
-      .catch((err: unknown): void => {
-        const message = err instanceof Error ? err.message : String(err);
-        logger.error(`[Shutdown] Error during shutdown: ${message}`);
+      .then(() => { logger.log('[Shutdown] Closed cleanly.'); process.exit(0); })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.error(`[Shutdown] Error: ${msg}`);
         process.exit(1);
       });
   };
 
-  process.on('SIGTERM', (): void => shutdown('SIGTERM'));
-  process.on('SIGINT', (): void => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 
   await app.listen(port, '0.0.0.0');
 
   logger.log('─'.repeat(60));
-  logger.log(`🚀 Application started in [${nodeEnv}] mode`);
-  logger.log(`🌐 Listening on: http://0.0.0.0:${port}/api/v1`);
-  logger.log(
-    `🗄️  Storage provider: ${config.get<string>('STORAGE_PROVIDER', 'local')}`,
-  );
-  logger.log(
-    `🤖 AI service URL: ${config.get<string>('FASTAPI_BASE_URL', 'NOT SET')}`,
-  );
-  logger.log(`🔒 CORS origins: ${JSON.stringify(corsOrigins)}`);
-
+  logger.log(`🚀 Started in [${nodeEnv}] mode`);
+  logger.log(`🌐 http://0.0.0.0:${port}/api/v1`);
+  logger.log(`🤖 AI: ${config.get<string>('FASTAPI_BASE_URL', 'NOT SET')}`);
+  logger.log(`🔒 CORS: ${JSON.stringify(corsOrigins)}`);
   if (nodeEnv !== 'production') {
-    logger.warn(
-      '⚠️  [DEV MODE] TypeORM synchronize: ON — ' +
-        'schema akan auto-update mengikuti entity. ' +
-        'JANGAN aktifkan di production!',
-    );
-    logger.warn('⚠️  [DEV MODE] CORS terbuka untuk semua origin.');
+    logger.warn('⚠️  [DEV] TypeORM synchronize ON — jangan di production!');
   }
-
   logger.log('─'.repeat(60));
 }
 
-
-bootstrap().catch((err: unknown): void => {
+bootstrap().catch((err: unknown) => {
   const logger = new Logger('Bootstrap');
-
-  const message = err instanceof Error ? err.message : String(err);
-  const stack = err instanceof Error ? err.stack : undefined;
-
-  logger.error(`❌ Fatal error during bootstrap: ${message}`, stack);
+  const msg    = err instanceof Error ? err.message : String(err);
+  const stack  = err instanceof Error ? err.stack   : undefined;
+  logger.error(`❌ Fatal bootstrap error: ${msg}`, stack);
   process.exit(1);
 });

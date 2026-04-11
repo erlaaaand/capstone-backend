@@ -13,11 +13,15 @@ export class StorageOrchestrator {
     private readonly deleteFile: DeleteFileUseCase,
   ) {}
 
+  /**
+   * FIX: Tambah parameter `userId` yang berasal dari JWT (bukan request body).
+   */
   upload(
-    file: IUploadedFile | undefined | null,
-    dto: UploadFileDto,
+    file:   IUploadedFile | undefined | null,
+    dto:    UploadFileDto,
+    userId: string,
   ): Promise<StorageResponseDto> {
-    return this.uploadFile.execute(file, dto);
+    return this.uploadFile.execute(file, dto, userId);
   }
 
   delete(fileKey: string): Promise<void> {

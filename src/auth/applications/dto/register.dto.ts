@@ -1,20 +1,17 @@
 // src/auth/applications/dto/register.dto.ts
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
-  IsEmail,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
+  IsEmail, IsNotEmpty, IsOptional, IsString,
+  Matches, MaxLength, MinLength,
 } from 'class-validator';
 
 export class RegisterDto {
-  /**
-   * FIX [CRITICAL-03] + [MEDIUM-01]:
-   * Normalisasi email di DTO layer — trim, lowercase, buang null-byte.
-   */
+  @ApiProperty({
+    description: 'Email unik untuk akun baru.',
+    example:     'user@example.com',
+    maxLength:   255,
+  })
   @Transform(({ value }: { value: unknown }): string => {
     if (typeof value !== 'string') return '';
     return value.replace(/\x00/g, '').trim().toLowerCase();
@@ -24,10 +21,13 @@ export class RegisterDto {
   @MaxLength(255, { message: 'Email maksimal 255 karakter' })
   email: string = '';
 
-  /**
-   * FIX [CRITICAL-03]: Buang null-byte pada password.
-   * Tidak di-trim — spasi pada password mungkin disengaja.
-   */
+  @ApiProperty({
+    description:
+      'Password minimal 8 karakter, harus mengandung huruf besar, huruf kecil, dan angka.',
+    example:     'MySecret123',
+    minLength:   8,
+    maxLength:   128,
+  })
   @Transform(({ value }: { value: unknown }): string => {
     if (typeof value !== 'string') return '';
     return value.replace(/\x00/g, '');
@@ -37,24 +37,19 @@ export class RegisterDto {
   @MinLength(8, { message: 'Password minimal 8 karakter' })
   @MaxLength(128, { message: 'Password maksimal 128 karakter' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'Password harus mengandung minimal satu huruf besar, ' +
-      'satu huruf kecil, dan satu angka',
+    message: 'Password harus mengandung huruf besar, huruf kecil, dan angka',
   })
   password: string = '';
 
-  /**
-   * FIX [CRITICAL-03]: Sanitasi fullName — trim dan buang
-   * karakter HTML yang bisa digunakan untuk XSS stored attack
-   * jika nama ditampilkan di UI tanpa escaping.
-   */
+  @ApiPropertyOptional({
+    description: 'Nama lengkap pengguna (opsional).',
+    example:     'Budi Santoso',
+    maxLength:   100,
+  })
   @Transform(({ value }: { value: unknown }): string | undefined => {
     if (value === undefined || value === null) return undefined;
     if (typeof value !== 'string') return undefined;
-    return value
-      .replace(/\x00/g, '')   // Buang null-byte
-      .replace(/[<>'"]/g, '') // Buang karakter HTML berbahaya
-      .trim();
+    return value.replace(/\x00/g, '').replace(/[<>'"]/g, '').trim();
   })
   @IsString({ message: 'Nama harus berupa string' })
   @IsOptional()

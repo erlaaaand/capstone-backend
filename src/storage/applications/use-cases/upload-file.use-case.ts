@@ -4,10 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { UploadFileDto } from '../dto/upload-file.dto';
 import { StorageResponseDto } from '../dto/storage-response.dto';
 import { StorageDomainService } from '../../domains/services/storage-domain.service';
-import {
-  StorageMapper,
-  type IUploadedFile,
-} from '../../domains/mappers/storage.mapper';
+import { StorageMapper, type IUploadedFile } from '../../domains/mappers/storage.mapper';
 import { FileValidator } from '../../domains/validators/file.validator';
 import {
   type IStorageAdapter,
@@ -20,39 +17,37 @@ export class UploadFileUseCase {
   constructor(
     @Inject(STORAGE_ADAPTER_TOKEN)
     private readonly storageAdapter: IStorageAdapter,
-    private readonly domainService: StorageDomainService,
-    private readonly validator: FileValidator,
-    private readonly mapper: StorageMapper,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly domainService:  StorageDomainService,
+    private readonly validator:      FileValidator,
+    private readonly mapper:         StorageMapper,
+    private readonly eventEmitter:   EventEmitter2,
   ) {}
 
-  // 2. GANTI TIPE PARAMETERNYA
+  /**
+   * FIX [CRITICAL — IDOR]: userId tidak lagi berasal dari DTO (request body).
+   * userId sekarang diterima sebagai parameter eksplisit yang sudah diverifikasi
+   * dari JWT token oleh controller via @CurrentUser('sub').
+   */
   async execute(
-    file: IUploadedFile | undefined | null,
-    dto: UploadFileDto,
+    file:    IUploadedFile | undefined | null,
+    dto:     UploadFileDto,
+    userId:  string,
   ): Promise<StorageResponseDto> {
     this.validator.assertAll(file);
 
-    const context: string = dto.context ?? 'general';
+    const context = dto.context ?? 'general';
     const fileKey = this.domainService.generateFileKey(
       file.originalname,
-      dto.userId,
+      userId,
       context,
     );
 
     const rawFile = this.mapper.toRawUploadedFile(file);
-
-    const stored = await this.storageAdapter.upload(rawFile, fileKey);
+    const stored  = await this.storageAdapter.upload(rawFile, fileKey);
 
     this.eventEmitter.emit(
       'storage.file_uploaded',
-      new FileUploadedEvent(
-        stored.fileKey,
-        stored.imageUrl,
-        dto.userId,
-        context,
-        new Date(),
-      ),
+      new FileUploadedEvent(stored.fileKey, stored.imageUrl, userId, context, new Date()),
     );
 
     return this.mapper.toResponseDto(stored);

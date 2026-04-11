@@ -1,5 +1,5 @@
 // src/users/applications/use-cases/update-user.use-case.ts
-import { Inject, Injectable } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { UserDomainService } from '../../domains/services/user-domain.service';
@@ -18,17 +18,27 @@ export class UpdateUserUseCase {
     private readonly mapper: UserMapper,
   ) {}
 
-  async execute(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
-    const user = await this.userRepo.findByEmail(
-      (await this.userRepo.findById(id))?.email ?? '',
-    );
+  async execute(
+    id: string,
+    dto: UpdateUserDto,
+    requestingUserId: string,
+  ): Promise<UserResponseDto> {
+    const user = await this.userRepo.findById(id);
+
     this.validator.assertExists(user, id);
+
+    if (user.id !== requestingUserId) {
+      throw new ForbiddenException(
+        'Anda tidak memiliki izin untuk mengubah profil user lain.',
+      );
+    }
+
     this.validator.assertIsActive(user);
 
     const updatePayload: Record<string, string | null> = {};
 
     if (dto.fullName !== undefined) {
-      updatePayload.fullName = dto.fullName;
+      updatePayload.fullName = dto.fullName ?? null;
     }
 
     if (dto.newPassword && dto.currentPassword) {
@@ -39,6 +49,10 @@ export class UpdateUserUseCase {
       updatePayload.password = await this.domainService.hashPassword(
         dto.newPassword,
       );
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return this.mapper.toResponseDto(user);
     }
 
     const updated = await this.userRepo.update(id, updatePayload);

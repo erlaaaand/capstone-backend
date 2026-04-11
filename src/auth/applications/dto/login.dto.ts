@@ -1,26 +1,16 @@
 // src/auth/applications/dto/login.dto.ts
+import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsEmail,
-  IsNotEmpty,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
-  /**
-   * FIX [CRITICAL-03]: Tambah @Transform untuk:
-   * 1. Trim whitespace sebelum validasi (mencegah lookup miss)
-   * 2. Lowercase normalisasi konsisten dengan data tersimpan di DB
-   * 3. Buang null-byte (\x00) yang bisa menyebabkan string bypass
-   *
-   * FIX [MEDIUM-01]: Normalisasi dilakukan di DTO layer sebagai
-   * garis pertahanan pertama, bukan hanya di DomainService.
-   */
+  @ApiProperty({
+    description: 'Email terdaftar pengguna.',
+    example:     'user@example.com',
+    maxLength:   255,
+  })
   @Transform(({ value }: { value: unknown }): string => {
     if (typeof value !== 'string') return '';
-    // Buang null-byte dan karakter kontrol lainnya, lalu trim & lowercase
     return value.replace(/\x00/g, '').trim().toLowerCase();
   })
   @IsEmail({}, { message: 'Format email tidak valid' })
@@ -28,13 +18,12 @@ export class LoginDto {
   @MaxLength(255, { message: 'Email maksimal 255 karakter' })
   email: string = '';
 
-  /**
-   * FIX [CRITICAL-03]: Trim password tapi TIDAK lowercase —
-   * password case-sensitive. Buang null-byte saja.
-   *
-   * Catatan: Jangan trim password karena spasi di awal/akhir
-   * mungkin disengaja oleh user. Hanya buang null-byte.
-   */
+  @ApiProperty({
+    description: 'Password akun (case-sensitive).',
+    example:     'MySecret123',
+    minLength:   8,
+    maxLength:   128,
+  })
   @Transform(({ value }: { value: unknown }): string => {
     if (typeof value !== 'string') return '';
     return value.replace(/\x00/g, '');
