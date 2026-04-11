@@ -1,17 +1,14 @@
 // src/predictions/interface/http/prediction.controller.ts
 import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Query,
-  UseFilters,
-  UseGuards,
+  Body, Controller, Get, HttpCode, HttpStatus,
+  Param, ParseUUIDPipe, Post, Query, UseFilters, UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse,
+  ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags,
+  ApiUnauthorizedResponse, ApiUnprocessableEntityResponse,
+  ApiForbiddenResponse,
+} from '@nestjs/swagger';
 import { PredictionOrchestrator } from '../../applications/orchestrator/prediction.orchestrator';
 import { CreatePredictionDto } from '../../applications/dto/create-prediction.dto';
 import {
@@ -21,28 +18,41 @@ import {
 import { FindPredictionsQueryDto } from '../../applications/dto/find-predictions-query.dto';
 import { PredictionExceptionFilter } from '../filters/prediction-exception.filter';
 import { JwtAuthGuard } from '../../../auth/interface/guards/jwt-auth.guard';
-import {
-  CurrentUser,
-} from '../../../auth/interface/decorators/current-user.decorator';
+import { CurrentUser } from '../../../auth/interface/decorators/current-user.decorator';
 
+@ApiTags('Predictions')
+@ApiBearerAuth('JWT')
 @Controller('predictions')
 @UseFilters(PredictionExceptionFilter)
-@UseGuards(JwtAuthGuard) // FIX: Semua endpoint wajib terautentikasi
+@UseGuards(JwtAuthGuard)
 export class PredictionController {
   constructor(private readonly orchestrator: PredictionOrchestrator) {}
 
   /**
-   * POST /predictions
-   *
-   * FIX [CRITICAL-02]: userId tidak lagi diambil dari request body.
-   * @CurrentUser('sub') mengekstrak userId dari JWT payload yang sudah
-   * diverifikasi oleh JwtAuthGuard — client tidak bisa memanipulasinya.
-   *
-   * FIX sebelumnya: this.orchestrator.create(dto) — tidak passing userId,
-   * menyebabkan TypeError karena parameter wajib tidak terpenuhi.
+   * POST /api/v1/predictions
+   * Flow: upload gambar dulu ke /storage/upload, lalu kirim imageUrl ke sini.
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:     'Buat prediksi baru',
+    description:
+      '**Flow lengkap:**\n' +
+      '1. Upload gambar → `POST /api/v1/storage/upload` → dapat `imageUrl`\n' +
+      '2. Kirim `imageUrl` ke endpoint ini\n' +
+      '3. Prediksi dibuat dengan status `PENDING`\n' +
+      '4. AI service memproses secara async (biasanya < 5 detik)\n' +
+      '5. Ambil hasil → `GET /api/v1/predictions/:id`\n\n' +
+      '**userId diambil otomatis dari JWT** — tidak perlu dikirim di body.',
+  })
+  @ApiCreatedResponse({
+    type:        PredictionResponseDto,
+    description: 'Prediksi berhasil dibuat dengan status PENDING.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Token tidak valid atau expired.' })
+  @ApiUnprocessableEntityResponse({
+    description: 'imageUrl tidak valid atau mengarah ke alamat yang diblokir (SSRF protection).',
+  })
   create(
     @Body() dto: CreatePredictionDto,
     @CurrentUser('sub') authenticatedUserId: string,
@@ -51,24 +61,24 @@ export class PredictionController {
   }
 
   /**
-   * GET /predictions/user/me
-   *
-   * FIX [CRITICAL-02] + [INFO-03]:
-   * 1. userId sekarang dari JWT — bukan dari URL param (eliminasi IDOR).
-   *    Endpoint lama GET /predictions/user/:userId memungkinkan user A
-   *    mengakses prediksi user B hanya dengan mengganti userId di URL.
-   * 2. Tambah @Query() untuk menerima parameter pagination (page, limit).
-   * 3. Return type diperbaiki dari PredictionResponseDto[] menjadi
-   *    PaginatedPredictionResponseDto agar sesuai dengan orchestrator.
-   *
-   * FIX sebelumnya:
-   *   - @Param('userId') — IDOR vulnerability
-   *   - this.orchestrator.getAllByUser(userId) — argumen query tidak dikirim
-   *   - Return type: Promise<PredictionResponseDto[]> — tidak cocok dengan
-   *     return value orchestrator (PaginatedPredictionResponseDto)
+   * GET /api/v1/predictions/user/me
+   * List semua prediksi milik user yang sedang login (dengan pagination).
    */
   @Get('user/me')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:     'Daftar prediksi saya',
+    description:
+      'Mengambil semua prediksi milik user yang sedang login dengan pagination.\n\n' +
+      'Urutkan dari terbaru ke terlama.',
+  })
+  @ApiQuery({ name: 'page',  type: Number, required: false, example: 1,  description: 'Nomor halaman (default: 1)' })
+  @ApiQuery({ name: 'limit', type: Number, required: false, example: 10, description: 'Item per halaman (default: 10, maks: 50)' })
+  @ApiOkResponse({
+    type:        PaginatedPredictionResponseDto,
+    description: 'List prediksi berhasil diambil.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Token tidak valid.' })
   getAllByUser(
     @CurrentUser('sub') authenticatedUserId: string,
     @Query() query: FindPredictionsQueryDto,
@@ -77,20 +87,32 @@ export class PredictionController {
   }
 
   /**
-   * GET /predictions/:id
-   *
-   * FIX [CRITICAL-02] + [HIGH-03]:
-   * 1. userId sekarang dari JWT — bukan dari URL param (:userId).
-   *    Endpoint lama GET /predictions/:id/user/:userId memungkinkan
-   *    attacker melakukan prediction ID enumeration dengan menguji
-   *    berbagai kombinasi id + userId.
-   * 2. requestingUserId diambil dari token yang sudah diverifikasi.
-   *
-   * FIX sebelumnya: @Param('userId') — membocorkan apakah UUID valid
-   * atau tidak berdasarkan respons berbeda dari server.
+   * GET /api/v1/predictions/:id
+   * Ambil detail prediksi. Hanya bisa akses milik sendiri.
    */
   @Get(':id')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:     'Detail prediksi',
+    description:
+      'Mengambil detail prediksi berdasarkan ID.\n\n' +
+      'Hanya bisa mengakses prediksi milik sendiri.\n\n' +
+      '**Cek status**: jika masih `PENDING`, panggil ulang setelah beberapa detik.',
+  })
+  @ApiParam({
+    name:        'id',
+    type:        'string',
+    format:      'uuid',
+    description: 'UUID prediksi',
+    example:     '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @ApiOkResponse({
+    type:        PredictionResponseDto,
+    description: 'Detail prediksi. Periksa field `status` dan `varietyName`.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Token tidak valid.' })
+  @ApiForbiddenResponse({ description: 'Prediksi ini bukan milik Anda.' })
+  @ApiNotFoundResponse({ description: 'Prediksi tidak ditemukan.' })
   getById(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser('sub') requestingUserId: string,
