@@ -52,7 +52,7 @@ async function bootstrap(): Promise<void> {
         directives: {
           defaultSrc:              ["'self'"],
           scriptSrc:               ["'self'"],
-          styleSrc:                ["'self'", "'unsafe-inline'"], // Swagger UI butuh inline style
+          styleSrc:                ["'self'", "'unsafe-inline'"],
           imgSrc:                  ["'self'", 'data:', 'blob:'],
           connectSrc:              ["'self'"],
           fontSrc:                 ["'self'", 'data:'],
@@ -64,12 +64,12 @@ async function bootstrap(): Promise<void> {
         nodeEnv === 'production'
           ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
           : false,
-      frameguard:       { action: 'deny' },
-      hidePoweredBy:    true,
-      noSniff:          true,
-      xssFilter:        true,
-      ieNoOpen:         true,
-      referrerPolicy:   { policy: 'strict-origin-when-cross-origin' },
+      frameguard:     { action: 'deny' },
+      hidePoweredBy:  true,
+      noSniff:        true,
+      xssFilter:      true,
+      ieNoOpen:       true,
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     }),
   );
 
@@ -90,7 +90,6 @@ async function bootstrap(): Promise<void> {
   });
 
   // ── Global Exception Filter ──────────────────────────────────
-  // FIX: Mencegah stack trace dan pesan error internal bocor ke client
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   // ── Global Validation Pipe ───────────────────────────────────
@@ -109,12 +108,17 @@ async function bootstrap(): Promise<void> {
   );
 
   // ── Swagger / OpenAPI ────────────────────────────────────────
-  // Aktif di development dan staging — nonaktifkan di production
-  // dengan set ENABLE_SWAGGER=false di env
+  // Aktif di development dan staging.
+  // JSON spec otomatis tersedia di:
+  //   GET /api/docs-json  (OpenAPI 3.0 JSON)
+  //   GET /api/docs-yaml  (OpenAPI 3.0 YAML)
+  // File swagger.json juga ditulis ke root project (non-production).
   const enableSwagger = config.get<string>('ENABLE_SWAGGER', 'true');
   if (nodeEnv !== 'production' || enableSwagger === 'true') {
     setupSwagger(app);
-    logger.log(`📖 Swagger docs: http://0.0.0.0:${port}/api/docs`);
+    logger.log(`📖 Swagger UI:   http://0.0.0.0:${port}/api/docs`);
+    logger.log(`📄 OpenAPI JSON: http://0.0.0.0:${port}/api/docs-json`);
+    logger.log(`📄 OpenAPI YAML: http://0.0.0.0:${port}/api/docs-yaml`);
   }
 
   if (nodeEnv === 'production') {
@@ -147,6 +151,7 @@ async function bootstrap(): Promise<void> {
   logger.log(`🔒 CORS: ${JSON.stringify(corsOrigins)}`);
   if (nodeEnv !== 'production') {
     logger.warn('⚠️  [DEV] TypeORM synchronize ON — jangan di production!');
+    logger.warn('⚠️  [DEV] swagger.json ditulis ke root project');
   }
   logger.log('─'.repeat(60));
 }

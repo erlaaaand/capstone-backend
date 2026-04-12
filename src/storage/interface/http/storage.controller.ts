@@ -24,6 +24,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
+  ApiBadRequestResponse,
+  ApiPayloadTooLargeResponse,
 } from '@nestjs/swagger';
 import { StorageOrchestrator } from '../../applications/orchestrator/storage.orchestrator';
 import { UploadFileDto } from '../../applications/dto/upload-file.dto';
@@ -37,14 +39,10 @@ import { CurrentUser } from '../../../auth/interface/decorators/current-user.dec
 /** Karakter yang diizinkan dalam fileKey hasil decode base64 */
 const SAFE_FILEKEY_PATTERN = /^[a-zA-Z0-9/_\-\.]+$/;
 
-/** Mencegah path traversal dalam fileKey */
 function isSafeFileKey(key: string): boolean {
   if (!key || key.trim().length === 0) return false;
-  // Tolak path traversal sequences
   if (key.includes('..') || key.includes('//')) return false;
-  // Tolak absolute path
   if (key.startsWith('/') || key.startsWith('\\')) return false;
-  // Hanya izinkan karakter yang aman
   return SAFE_FILEKEY_PATTERN.test(key);
 }
 
@@ -56,97 +54,116 @@ function isSafeFileKey(key: string): boolean {
 export class StorageController {
   constructor(private readonly orchestrator: StorageOrchestrator) {}
 
-  /**
-   * POST /api/v1/storage/upload
-   *
-   * FIX [CRITICAL — IDOR]: userId sekarang diambil dari JWT,
-   * BUKAN dari request body. Client tidak bisa menentukan
-   * userId sendiri untuk mengklaim file milik user lain.
-   */
+  // ── Upload ─────────────────────────────────────────────────────────────────
+
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(FileSizeGuard)
   @UseInterceptors(FileUploadInterceptor)
   @ApiOperation({
-    summary:     'Upload gambar',
+    summary: 'Upload gambar durian',
     description:
-      'Upload file gambar (JPG/PNG/WebP, maks 5MB). ' +
-      'userId diambil otomatis dari JWT — tidak perlu dikirim di body.',
+      'Upload file gambar untuk digunakan dalam prediksi.\n\n' +
+      '**Format yang didukung:** JPG, PNG, WebP\n\n' +
+      '**Ukuran maksimum:** 5MB\n\n' +
+      '**Flow penggunaan:**\n' +
+      '1. Upload gambar di sini → dapatkan `imageUrl`\n' +
+      '2. Gunakan `imageUrl` tersebut di `POST /api/v1/predictions`\n\n' +
+      '`userId` diambil otomatis dari JWT — tidak perlu dikirim di body.\n\n' +
+      'File disimpan di path: `{context}/{userId}/{uuid}.{ext}`',
+    operationId: 'storageUpload',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'File gambar + optional context/provider',
+    description: 'File gambar wajib disertakan. `context` dan `provider` bersifat opsional.',
     schema: {
-      type:       'object',
-      required:   ['file'],
+      type: 'object',
+      required: ['file'],
       properties: {
         file: {
-          type:   'string',
-          format: 'binary',
+          type:        'string',
+          format:      'binary',
           description: 'File gambar (JPG/PNG/WebP, maks 5MB)',
         },
         context: {
-          type:    'string',
-          example: 'predictions',
-          description: 'Sub-folder penyimpanan (opsional)',
+          type:        'string',
+          example:     'predictions',
+          description: 'Sub-folder penyimpanan. Default: `general`',
         },
         provider: {
-          type:    'string',
-          enum:    ['local', 's3'],
-          example: 'local',
+          type:        'string',
+          enum:        ['local', 's3'],
+          example:     'local',
+          description: 'Storage provider. Default mengikuti env `STORAGE_PROVIDER`',
         },
       },
     },
   })
   @ApiCreatedResponse({
     type:        StorageResponseDto,
-    description: 'File berhasil diupload. Gunakan imageUrl untuk prediksi.',
+    description: 'File berhasil diupload. Gunakan `imageUrl` untuk membuat prediksi.',
   })
   @ApiUnauthorizedResponse({ description: 'Token tidak valid.' })
   @ApiUnprocessableEntityResponse({
-    description: 'File tidak ada, format tidak didukung, atau ukuran melebihi batas.',
+    description: 'File tidak ada, format tidak didukung (bukan JPG/PNG/WebP), atau ukuran melebihi 5MB.',
+    schema: {
+      example: {
+        statusCode: 422,
+        message: "Tipe file 'image/gif' tidak didukung. Gunakan: image/jpeg, image/png, image/webp",
+        error: 'UnprocessableEntityException',
+        module: 'storage',
+      },
+    },
+  })
+  @ApiPayloadTooLargeResponse({
+    description: 'Ukuran file melebihi batas 5MB.',
+    schema: { example: { statusCode: 413, message: 'Ukuran file 6.50MB melebihi batas maksimum 5MB', error: 'PayloadTooLargeException', module: 'storage' } },
   })
   upload(
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() dto: UploadFileDto,
     @CurrentUser('sub') authenticatedUserId: string,
   ): Promise<StorageResponseDto> {
-    // FIX: userId dari JWT, bukan dari DTO
     return this.orchestrator.upload(file, dto, authenticatedUserId);
   }
 
-  /**
-   * DELETE /api/v1/storage/:fileKey
-   *
-   * FIX [HIGH]: Tambah validasi fileKey setelah base64 decode.
-   *
-   * SEBELUM: fileKey langsung di-decode dari base64 tanpa sanitasi apapun.
-   *   Attacker bisa mengirim base64("../../secret/file") untuk path traversal,
-   *   atau base64("/etc/passwd") untuk menghapus file sistem.
-   *
-   * SESUDAH:
-   *   1. Decode base64.
-   *   2. Validasi dengan isSafeFileKey() — blokir path traversal.
-   *   3. (TODO future): ownership check — pastikan file milik user yang request.
-   *      Perlu index fileKey→userId di DB untuk implementasi penuh.
-   */
+  // ── Delete ─────────────────────────────────────────────────────────────────
+
   @Delete(':fileKey')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    summary:     'Hapus file',
+    summary: 'Hapus file dari storage',
     description:
-      'Hapus file dari storage. fileKey di-encode sebagai base64url ' +
-      'untuk menghindari konflik path separator di URL.',
+      'Hapus file berdasarkan `fileKey` yang didapat dari response upload.\n\n' +
+      '`fileKey` harus di-encode sebagai **base64url** sebelum dimasukkan ke URL ' +
+      'untuk menghindari konflik dengan path separator (`/`).\n\n' +
+      '**Cara encode di JavaScript:**\n' +
+      '```javascript\n' +
+      "const encoded = btoa('predictions/userId/abc123.jpg');\n" +
+      "// → 'cHJlZGljdGlvbnMvdXNlcklkL2FiYzEyMy5qcGc='\n" +
+      'fetch(`/api/v1/storage/${encoded}`, { method: "DELETE" });\n' +
+      '```',
+    operationId: 'storageDelete',
   })
   @ApiParam({
     name:        'fileKey',
-    description: 'Base64url-encoded file key dari response upload.',
-    example:     'cHJlZGljdGlvbnMvdXNlci1pZC9maWxlLmpwZw==',
+    description: '**Base64url-encoded** file key dari response upload. Contoh: encode `predictions/userId/file.jpg` → `cHJlZGljdGlvbnMv...`',
+    example:     'cHJlZGljdGlvbnMvdXNlci1pZC9hYmMxMjMuanBn',
   })
-  @ApiNoContentResponse({ description: 'File berhasil dihapus.' })
+  @ApiNoContentResponse({ description: 'File berhasil dihapus (atau sudah tidak ada).' })
+  @ApiBadRequestResponse({
+    description: 'fileKey tidak valid — bukan base64 yang valid atau mengandung path traversal.',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: 'fileKey mengandung karakter tidak diizinkan atau pola path traversal.',
+        error: 'BadRequestException',
+        module: 'storage',
+      },
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Token tidak valid.' })
   delete(@Param('fileKey') encodedFileKey: string): Promise<void> {
-    // FIX: Decode + validasi untuk mencegah path traversal
     let fileKey: string;
     try {
       fileKey = Buffer.from(encodedFileKey, 'base64').toString('utf-8').trim();

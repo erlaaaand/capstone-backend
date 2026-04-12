@@ -12,13 +12,24 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { validate } from './config/env.validation';
 import { UserEntity } from './users/domains/entities/user.entity';
 import { PredictionEntity } from './predictions/domains/entities/prediction.entity';
+
+// ── Feature Modules ───────────────────────────────────────────
 import { UserModule } from './users/user.module';
+import { AuthModule } from './auth/auth.module';
 import { PredictionModule } from './predictions/prediction.module';
+import { StorageModule } from './storage/storage.module';
 import { AiIntegrationModule } from './ai-integration/ai-integration.module';
+
+// ── Guards ────────────────────────────────────────────────────
+// FIX [BUG-4]: JwtAuthGuard di-register sebagai APP_GUARD global
+// sehingga semua controller (UserController, PredictionController, dll.)
+// bisa menggunakannya tanpa perlu import AuthModule satu per satu.
+// Route publik dilindungi dengan @Public() decorator.
+import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
 
 @Module({
   imports: [
-
+    // ── 1. Config (global) ────────────────────────────────────
     ConfigModule.forRoot({
       isGlobal: true,
       validate,
@@ -29,6 +40,7 @@ import { AiIntegrationModule } from './ai-integration/ai-integration.module';
       ],
     }),
 
+    // ── 2. Event Emitter (global) ─────────────────────────────
     EventEmitterModule.forRoot({
       wildcard: false,
       global: true,
@@ -36,8 +48,10 @@ import { AiIntegrationModule } from './ai-integration/ai-integration.module';
       verboseMemoryLeak: process.env.NODE_ENV !== 'production',
     }),
 
+    // ── 3. Scheduler ──────────────────────────────────────────
     ScheduleModule.forRoot(),
 
+    // ── 4. Rate Limiter ───────────────────────────────────────
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -75,22 +89,16 @@ import { AiIntegrationModule } from './ai-integration/ai-integration.module';
           password: config.getOrThrow<string>('DB_PASSWORD'),
           database: config.getOrThrow<string>('DB_DATABASE'),
           entities: [UserEntity, PredictionEntity],
-
           synchronize: isSynchronizeEnabled,
-
           logging: nodeEnv === 'development' ? ['query', 'error'] : ['error'],
-
           timezone: '+07:00',
           charset: 'utf8mb4',
-
           extra: {
             connectionLimit: config.get<number>('DB_CONNECTION_LIMIT', 10),
             acquireTimeout: 10_000,
-            // Reconnect otomatis jika koneksi MySQL terputus
             enableKeepAlive: true,
             keepAliveInitialDelay: 30_000,
           },
-
           retryAttempts: 5,
           retryDelay: 3_000,
         };
@@ -98,16 +106,34 @@ import { AiIntegrationModule } from './ai-integration/ai-integration.module';
     }),
 
     // ── 6. Feature Modules ────────────────────────────────────
+    // FIX [BUG-1]: AuthModule dan StorageModule wajib di-import agar
+    // AuthController, StorageController, dan semua route-nya terdaftar.
+    // Sebelumnya kedua modul ini tidak di-import → seluruh endpoint
+    // /auth/* dan /storage/* mengembalikan 404.
+    AuthModule,
+    StorageModule,
     UserModule,
     PredictionModule,
     AiIntegrationModule,
   ],
 
   providers: [
-
+    // ── Global Guards ──────────────────────────────────────────
+    // ThrottlerGuard: rate-limiting untuk semua route
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+
+    // FIX [BUG-4]: JwtAuthGuard sebagai global guard.
+    // Dengan ini, setiap controller langsung terlindungi JWT tanpa
+    // perlu @UseGuards(JwtAuthGuard) di setiap controller.
+    // Route yang tidak butuh auth diberi @Public() decorator.
+    // Circular dependency UserModule↔AuthModule tereleminasi karena
+    // JwtAuthGuard tidak lagi di-inject per-module.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

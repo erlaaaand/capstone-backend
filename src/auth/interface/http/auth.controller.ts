@@ -21,11 +21,14 @@ import { CurrentUser } from '../decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../domains/entities/jwt-payload.entity';
 
 @ApiTags('Auth')
+@ApiBearerAuth('JWT')
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(JwtAuthGuard)
 export class AuthController {
   constructor(private readonly orchestrator: AuthOrchestrator) {}
+
+  // ── Register ───────────────────────────────────────────────────────────────
 
   @Public()
   @Post('register')
@@ -34,20 +37,37 @@ export class AuthController {
   @ApiOperation({
     summary:     'Daftar akun baru',
     description:
-      'Membuat akun pengguna baru. Dikembalikan JWT token langsung ' +
+      'Membuat akun pengguna baru. JWT token langsung dikembalikan ' +
       'sehingga user bisa langsung mengakses endpoint lain.\n\n' +
+      '**Tidak memerlukan autentikasi.**\n\n' +
       '**Rate limit**: 5 request/menit per IP.',
+    operationId: 'authRegister',
   })
   @ApiCreatedResponse({
     type:        AuthResponseDto,
-    description: 'Registrasi berhasil. Gunakan `accessToken` untuk request berikutnya.',
+    description: 'Registrasi berhasil. Gunakan `accessToken` di header `Authorization: Bearer <token>`.',
   })
-  @ApiBadRequestResponse({ description: 'Validasi gagal (email format salah, password lemah, dll).' })
-  @ApiConflictResponse({ description: 'Email sudah terdaftar.' })
+  @ApiBadRequestResponse({
+    description: 'Validasi gagal — email format salah, password terlalu lemah, dll.',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['Format email tidak valid', 'Password minimal 8 karakter'],
+        error: 'BadRequestException',
+        module: 'auth',
+      },
+    },
+  })
+  @ApiConflictResponse({
+    description: 'Email sudah terdaftar.',
+    schema: { example: { statusCode: 409, message: "Email 'x@y.com' sudah digunakan", error: 'ConflictException', module: 'auth' } },
+  })
   @ApiTooManyRequestsResponse({ description: 'Terlalu banyak percobaan. Coba lagi dalam 1 menit.' })
   register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
     return this.orchestrator.register(dto);
   }
+
+  // ── Login ──────────────────────────────────────────────────────────────────
 
   @Public()
   @Post('login')
@@ -57,30 +77,44 @@ export class AuthController {
     summary:     'Login',
     description:
       'Login dengan email dan password. Mengembalikan JWT access token.\n\n' +
+      '**Tidak memerlukan autentikasi.**\n\n' +
       '**Rate limit**: 5 request/menit per IP.\n\n' +
-      '**Security**: Menggunakan constant-time comparison untuk mencegah timing attack.',
+      '**Security**: Menggunakan constant-time comparison untuk mencegah timing attack.\n\n' +
+      'Simpan `accessToken` dan gunakan di setiap request berikutnya:\n' +
+      '```\nAuthorization: Bearer <accessToken>\n```',
+    operationId: 'authLogin',
   })
   @ApiOkResponse({
     type:        AuthResponseDto,
     description: 'Login berhasil. Simpan `accessToken` untuk digunakan di request selanjutnya.',
   })
-  @ApiUnauthorizedResponse({ description: 'Email atau password salah.' })
+  @ApiUnauthorizedResponse({
+    description: 'Email atau password salah.',
+    schema: { example: { statusCode: 401, message: 'Email atau password tidak valid', error: 'UnauthorizedException', module: 'auth' } },
+  })
   @ApiTooManyRequestsResponse({ description: 'Terlalu banyak percobaan login. Coba lagi dalam 1 menit.' })
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.orchestrator.login(dto);
   }
+
+  // ── Me ─────────────────────────────────────────────────────────────────────
 
   @Get('me')
   @HttpCode(HttpStatus.OK)
   @SkipThrottle()
   @ApiBearerAuth('JWT')
   @ApiOperation({
-    summary:     'Info user saat ini',
-    description: 'Mengembalikan data user yang sedang login berdasarkan JWT token.',
+    summary:     'Info user yang sedang login',
+    description: 'Mengembalikan data user berdasarkan JWT token yang aktif.',
+    operationId: 'authMe',
   })
   @ApiOkResponse({
+    description: 'Data user berhasil diambil.',
     schema: {
-      example: { userId: '550e8400-e29b-41d4-a716-446655440000', email: 'user@example.com' },
+      example: {
+        userId: '550e8400-e29b-41d4-a716-446655440000',
+        email:  'user@example.com',
+      },
     },
   })
   @ApiUnauthorizedResponse({ description: 'Token tidak ada atau expired.' })
