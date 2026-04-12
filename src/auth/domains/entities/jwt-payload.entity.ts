@@ -35,8 +35,24 @@ export class JwtPayload {
 /**
  * Hasil decode setelah JWT diverifikasi oleh strategy.
  * Digunakan sebagai tipe di CurrentUser decorator.
+ *
+ * FIX [BUG-CURRENT-USER]: Field 'userId' diganti menjadi 'sub'
+ * agar konsisten dengan:
+ *   1. @CurrentUser('sub') yang digunakan di SEMUA controller
+ *      (UserController, PredictionController, StorageController)
+ *   2. JwtUserPayload interface di current-user.decorator.ts
+ *      yang mendefinisikan field 'sub'
+ *
+ * SEBELUM: { userId: string, email: string }
+ *   → @CurrentUser('sub') mengembalikan undefined karena field
+ *     tidak ada, sehingga semua ownership check gagal dan
+ *     data disimpan dengan userId = undefined
+ *
+ * SESUDAH: { sub: string, email: string }
+ *   → @CurrentUser('sub') mengembalikan UUID user yang benar
  */
 export class AuthenticatedUser {
-  userId: string = '';
+  /** UUID user — sama dengan claim 'sub' di JWT */
+  sub: string = '';
   email: string = '';
 }

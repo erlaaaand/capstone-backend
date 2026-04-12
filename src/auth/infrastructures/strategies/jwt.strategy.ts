@@ -30,11 +30,25 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   /**
-   * FIX [MEDIUM-03]: Generic constraint ditambahkan secara implisit
-   * melalui return type eksplisit AuthenticatedUser.
-   *
    * validate() dipanggil oleh Passport setelah JWT berhasil diverifikasi.
    * Payload dijamin sudah valid di titik ini — iss, aud, exp sudah dicek.
+   *
+   * FIX [BUG-CURRENT-USER]: Return object sekarang menggunakan field 'sub'
+   * (bukan 'userId') agar konsisten dengan:
+   *   - AuthenticatedUser class yang sudah di-update
+   *   - @CurrentUser('sub') decorator yang digunakan di semua controller
+   *   - JwtUserPayload interface di current-user.decorator.ts
+   *
+   * SEBELUM:
+   *   return { userId: payload.sub, email: payload.email }
+   *   → @CurrentUser('sub') mengembalikan undefined karena field 'sub'
+   *     tidak ada di object ini. Semua controller mendapat userId = undefined.
+   *
+   * SESUDAH:
+   *   return { sub: payload.sub, email: payload.email }
+   *   → @CurrentUser('sub') mengembalikan UUID user yang benar.
+   *     UserController, PredictionController, StorageController semua
+   *     mendapat authenticatedUserId yang valid.
    */
   validate(payload: JwtPayload): AuthenticatedUser {
     if (!payload.sub || payload.sub.trim().length === 0) {
@@ -48,7 +62,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     return {
-      userId: payload.sub,
+      sub: payload.sub,       // ← FIX: 'sub' bukan 'userId'
       email: payload.email,
     };
   }

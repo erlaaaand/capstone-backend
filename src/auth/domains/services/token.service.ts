@@ -28,21 +28,43 @@ export class TokenService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {
-    this.issuer = this.config.getOrThrow<string>('JWT_ISSUER');
+    this.issuer   = this.config.getOrThrow<string>('JWT_ISSUER');
     this.audience = this.config.getOrThrow<string>('JWT_AUDIENCE');
   }
 
   /**
-   * Generate JWT dengan issuer dan audience ter-embed.
-   * JwtModule sudah dikonfigurasi dengan secret dan expiresIn
-   * via registerAsync di AuthModule — tidak perlu pass ulang di sini.
+   * Generate JWT access token.
+   *
+   * FIX [DOUBLE-CLAIM BUG]: Hapus 'iss' dan 'aud' dari payload manual.
+   *
+   * SEBELUM (bermasalah):
+   *   this.jwtService.sign({
+   *     sub, email,
+   *     iss: this.issuer,    ← manual
+   *     aud: this.audience,  ← manual
+   *   })
+   *
+   *   JwtModule.registerAsync juga sudah menge-set signOptions.issuer
+   *   dan signOptions.audience. Library 'jsonwebtoken' (yang digunakan
+   *   di balik @nestjs/jwt) akan melempar error:
+   *   "Bad 'options.issuer' option. The payload already has an 'iss' property."
+   *
+   *   Akibatnya jwtService.sign() gagal atau menghasilkan token yang tidak
+   *   bisa diverifikasi oleh JwtStrategy → semua request berakhir 401.
+   *
+   * SESUDAH (benar):
+   *   Hanya kirim sub dan email di payload.
+   *   JwtModule signOptions yang sudah dikonfigurasi di auth.module.ts
+   *   akan otomatis menambahkan iss, aud, dan exp ke token.
+   *   Tidak ada duplikasi claim.
    */
   generateAccessToken(payload: JwtPayload): string {
     return this.jwtService.sign({
-      sub: payload.sub,
+      sub:   payload.sub,
       email: payload.email,
-      iss: this.issuer,
-      aud: this.audience,
+      // iss dan aud TIDAK di-set di sini —
+      // sudah dihandle oleh signOptions di JwtModule.registerAsync:
+      //   signOptions: { issuer: JWT_ISSUER, audience: JWT_AUDIENCE }
     });
   }
 
@@ -61,7 +83,7 @@ export class TokenService {
   verifyAccessToken(token: string): JwtPayload {
     try {
       return this.jwtService.verify<JwtPayload>(token, {
-        issuer: this.issuer,
+        issuer:   this.issuer,
         audience: this.audience,
       });
     } catch (err: unknown) {
@@ -88,7 +110,7 @@ export class TokenService {
 
   decodeToAuthUser(payload: JwtPayload): AuthenticatedUser {
     return {
-      userId: payload.sub,
+      sub:   payload.sub,
       email: payload.email,
     };
   }
