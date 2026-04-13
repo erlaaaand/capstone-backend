@@ -116,9 +116,9 @@ async function bootstrap(): Promise<void> {
   const enableSwagger = config.get<string>('ENABLE_SWAGGER', 'true');
   if (nodeEnv !== 'production' || enableSwagger === 'true') {
     setupSwagger(app);
-    logger.log(`📖 Swagger UI:   http://0.0.0.0:${port}/api/docs`);
-    logger.log(`📄 OpenAPI JSON: http://0.0.0.0:${port}/api/docs-json`);
-    logger.log(`📄 OpenAPI YAML: http://0.0.0.0:${port}/api/docs-yaml`);
+    logger.log(`📖 Swagger UI:   http://localhost:${port}/api/docs`);
+    logger.log(`📄 OpenAPI JSON: http://localhost:${port}/api/docs-json`);
+    logger.log(`📄 OpenAPI YAML: http://localhost:${port}/api/docs-yaml`);
   }
 
   if (nodeEnv === 'production') {
@@ -142,11 +142,11 @@ async function bootstrap(): Promise<void> {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT',  () => shutdown('SIGINT'));
 
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port, 'localhost');
 
   logger.log('─'.repeat(60));
   logger.log(`🚀 Started in [${nodeEnv}] mode`);
-  logger.log(`🌐 http://0.0.0.0:${port}/api/v1`);
+  logger.log(`🌐 http://localhost:${port}/api/v1`);
   logger.log(`🤖 AI: ${config.get<string>('FASTAPI_BASE_URL', 'NOT SET')}`);
   logger.log(`🔒 CORS: ${JSON.stringify(corsOrigins)}`);
   if (nodeEnv !== 'production') {

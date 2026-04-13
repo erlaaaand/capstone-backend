@@ -1,5 +1,5 @@
-// src/users/domains/entities/user.entity.ts
 import {
+  BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { PredictionEntity } from '../../../predictions/domains/entities/prediction.entity';
 
 @Entity({ name: 'users' })
@@ -32,7 +33,13 @@ export class UserEntity {
   @UpdateDateColumn({ type: 'timestamp' })
   updatedAt: Date = new Date();
 
-  // ── Relations ────────────────────────────────────────────────
+  @BeforeInsert()
+  generateUuid(): void {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
+
   @OneToMany(() => PredictionEntity, (prediction) => prediction.user, {
     cascade: true,
     lazy: true,

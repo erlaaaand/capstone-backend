@@ -121,4 +121,25 @@ export class AuthController {
   getMe(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
     return user;
   }
+
+  // ── Logout ──────────────────────────────────────────────────────────────────
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @SkipThrottle()
+  @ApiOperation({
+    summary: 'Logout pengguna',
+    description: 'Melakukan proses logout pengguna (misalnya invalidasi token aktif).',
+    operationId: 'authLogout',
+  })
+  @ApiOkResponse({
+    description: 'Logout berhasil',
+    schema: {
+      example: { message: 'Logout berhasil' },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Token tidak valid atau sudah expired' })
+  async logout(@CurrentUser() user: AuthenticatedUser) {
+    return this.orchestrator.logout(user.sub);
+  }
 }

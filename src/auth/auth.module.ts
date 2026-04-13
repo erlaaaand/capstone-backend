@@ -19,6 +19,7 @@ import { AuthMapper } from './domains/mappers/auth.mapper';
 // Use Cases
 import { LoginUseCase } from './applications/use-cases/login.use-case';
 import { RegisterUseCase } from './applications/use-cases/register.use-case';
+import { LogoutService } from './applications/use-cases/logout.use-case';
 
 // Orchestrator
 import { AuthOrchestrator } from './applications/orchestrator/auth.orchestrator';
@@ -73,6 +74,7 @@ import { UserLoggedInListener } from './infrastructures/listeners/user-logged-in
     AuthOrchestrator,
     JwtAuthGuard,
     UserLoggedInListener,
+    LogoutService,
   ],
   exports: [JwtAuthGuard, JwtModule, TokenService],
 })

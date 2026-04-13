@@ -100,7 +100,7 @@ Confidence score dikembalikan dalam rentang **0.0000 – 1.0000** (4 desimal).
       'Status koneksi dan kesiapan model AI — **tidak memerlukan JWT**',
     )
     // ── Servers ────────────────────────────────────────────────
-    .addServer('http://localhost:3000', 'Development')
+    .addServer('http://localhost:3001', 'Development')
     .addServer('https://api.yourapp.com', 'Production')
     .build();
 
