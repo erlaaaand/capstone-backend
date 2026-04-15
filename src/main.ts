@@ -45,6 +45,9 @@ async function bootstrap(): Promise<void> {
   const port    = config.getOrThrow<number>('PORT');
   const nodeEnv = config.getOrThrow<string>('NODE_ENV');
 
+  const defaultHost = nodeEnv === 'production' ? '0.0.0.0' : 'localhost';
+  const host = config.get<string>('HOST', defaultHost);
+
   // ── Security Headers ─────────────────────────────────────────
   app.use(
     helmet({
@@ -108,11 +111,6 @@ async function bootstrap(): Promise<void> {
   );
 
   // ── Swagger / OpenAPI ────────────────────────────────────────
-  // Aktif di development dan staging.
-  // JSON spec otomatis tersedia di:
-  //   GET /api/docs-json  (OpenAPI 3.0 JSON)
-  //   GET /api/docs-yaml  (OpenAPI 3.0 YAML)
-  // File swagger.json juga ditulis ke root project (non-production).
   const enableSwagger = config.get<string>('ENABLE_SWAGGER', 'true');
   if (nodeEnv !== 'production' || enableSwagger === 'true') {
     setupSwagger(app);
@@ -142,13 +140,14 @@ async function bootstrap(): Promise<void> {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT',  () => shutdown('SIGINT'));
 
-  await app.listen(port, 'localhost');
+  await app.listen(port, host);
 
   logger.log('─'.repeat(60));
   logger.log(`🚀 Started in [${nodeEnv}] mode`);
-  logger.log(`🌐 http://localhost:${port}/api/v1`);
+  logger.log(`🌐 http://${host}:${port}/api/v1`);
   logger.log(`🤖 AI: ${config.get<string>('FASTAPI_BASE_URL', 'NOT SET')}`);
   logger.log(`🔒 CORS: ${JSON.stringify(corsOrigins)}`);
+  logger.log(`📡 Host binding: ${host}:${port}`);
   if (nodeEnv !== 'production') {
     logger.warn('⚠️  [DEV] TypeORM synchronize ON — jangan di production!');
     logger.warn('⚠️  [DEV] swagger.json ditulis ke root project');

@@ -39,21 +39,6 @@ const USE_CASES = [
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserEntity]),
-    /**
-     * FIX [HIGH-01]: EventEmitterModule.forRoot() DIHAPUS dari sini.
-     *
-     * EventEmitterModule sudah didaftarkan sebagai global module
-     * di AppModule dengan EventEmitterModule.forRoot({ global: true }).
-     *
-     * Memanggil .forRoot() lagi di feature module akan:
-     * 1. Membuat instance EventEmitter yang TERPISAH dari global bus
-     * 2. Event yang di-emit dari CreateUserUseCase tidak akan
-     *    diterima oleh listener di modul lain (silent event loss)
-     * 3. Tidak ada error yang muncul — ini adalah silent bug
-     *
-     * EventEmitter2 bisa langsung di-inject tanpa import apapun
-     * karena sudah global: true di AppModule.
-     */
   ],
   controllers: [UserController],
   providers: [

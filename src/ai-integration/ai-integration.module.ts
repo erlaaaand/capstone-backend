@@ -13,9 +13,7 @@ import { AiResponseValidator } from './domains/validators/ai-response.validator'
 import { AiResponseMapper } from './domains/mappers/ai-response.mapper';
 import { ProcessPredictionUseCase } from './applications/use-cases/process-prediction.use-case';
 import { AiIntegrationOrchestrator } from './applications/orchestrator/ai-integration.orchestrator';
-import { AiPredictionCreatedListener } from './infrastructures/listeners/prediction-created.listener';
 
-// forwardRef() memutus circular dependency
 import { PredictionModule } from '../predictions/prediction.module';
 
 @Module({
@@ -31,7 +29,6 @@ import { PredictionModule } from '../predictions/prediction.module';
       }),
     }),
 
-    // forwardRef karena PredictionModule juga import AiIntegrationModule
     forwardRef(() => PredictionModule),
   ],
   controllers: [AiHealthController],
@@ -44,7 +41,6 @@ import { PredictionModule } from '../predictions/prediction.module';
     AiResponseMapper,
     ProcessPredictionUseCase,
     AiIntegrationOrchestrator,
-    AiPredictionCreatedListener,
   ],
   exports: [
     AiHealthService,

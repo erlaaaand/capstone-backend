@@ -83,36 +83,6 @@ export class PredictionEntity {
   createdAt: Date = new Date();
 
   // ── Relations ────────────────────────────────────────────────
-  /**
-   * FIX [BUG — userId selalu "" di INSERT]:
-   *
-   * MASALAH:
-   *   Sebelumnya: `user: UserEntity = new UserEntity()`
-   *
-   *   TypeORM, saat membangun INSERT statement, membaca nilai FK dari
-   *   RELASI OBJECT (`entity.user.id`), bukan dari property `userId`
-   *   secara langsung. Karena `new UserEntity()` menghasilkan object
-   *   dengan `id = ''` (class default), TypeORM memakai `''` sebagai
-   *   nilai userId di INSERT — meski `entity.userId` sudah di-set benar.
-   *
-   *   Ini terbukti dari log:
-   *     Controller log: userId=18c585b0-dc03-44df-...   ← benar
-   *     INSERT params:  userId=""                        ← salah
-   *
-   * SOLUSI:
-   *   Hapus initializer `= new UserEntity()`.
-   *   Deklarasikan sebagai `user!: UserEntity` (definite assignment,
-   *   tidak ada default value).
-   *
-   *   Dengan ini, saat TypeORM mencoba membaca `entity.user`, nilainya
-   *   `undefined`. TypeORM lalu fallback ke membaca FK dari property
-   *   `userId` yang sudah di-set dengan benar → INSERT memakai UUID asli.
-   *
-   *   `!` (non-null assertion) aman di sini karena:
-   *   - TypeORM lazy-loads relasi saat dibutuhkan
-   *   - Kita tidak pernah akses `entity.user` saat INSERT
-   *   - Kode yang perlu akses user (misal mapper) menggunakan userId saja
-   */
   @ManyToOne(() => UserEntity, (user) => user.predictions, {
     onDelete: 'CASCADE',
     nullable: false,

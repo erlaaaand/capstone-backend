@@ -8,26 +8,11 @@ import { PredictionEntity } from '../entities/prediction.entity';
 
 @Injectable()
 export class PredictionValidator {
-  /**
-   * FIX [MEDIUM-01] + [HIGH-03]: Gabungkan assertExists dan
-   * assertBelongsToUser menjadi satu method dengan pesan generik.
-   *
-   * Dua pesan error berbeda untuk "tidak ada" vs "bukan milik user"
-   * memungkinkan prediction ID enumeration attack.
-   *
-   * Dengan satu pesan generik, attacker tidak bisa membedakan
-   * kedua kasus tersebut.
-   *
-   * Type predicate 'asserts prediction is PredictionEntity'
-   * memastikan TypeScript tahu bahwa setelah method ini dipanggil,
-   * prediction pasti non-null — eliminasi non-null assertion (!) di caller.
-   */
   assertExistsAndBelongsToUser(
     prediction: PredictionEntity | null,
     id: string,
     userId: string,
   ): asserts prediction is PredictionEntity {
-    // Satu pesan error untuk kedua kasus — tidak bocorkan informasi
     const genericMessage = `Prediction dengan id '${id}' tidak ditemukan.`;
 
     if (prediction === null || prediction === undefined) {
@@ -35,18 +20,10 @@ export class PredictionValidator {
     }
 
     if (prediction.userId !== userId) {
-      // Sama-sama NotFoundException — bukan ForbiddenException
-      // agar attacker tidak bisa membedakan "tidak ada" vs "bukan milik"
       throw new NotFoundException(genericMessage);
     }
   }
 
-  /**
-   * Pertahankan assertExists untuk use case internal yang tidak
-   * memerlukan validasi kepemilikan (misalnya: AI processing).
-   *
-   * FIX [MEDIUM-01]: Tambah type guard yang eksplisit.
-   */
   assertExists(
     prediction: PredictionEntity | null,
     id: string,
@@ -58,14 +35,6 @@ export class PredictionValidator {
     }
   }
 
-  /**
-   * Pertahankan assertBelongsToUser sebagai method terpisah
-   * untuk kasus di mana kepemilikan perlu dicek setelah
-   * assertExists sudah dipanggil (internal use case).
-   *
-   * FIX [MEDIUM-01]: Tambah parameter type yang lebih ketat —
-   * method ini hanya boleh dipanggil setelah assertExists.
-   */
   assertBelongsToUser(prediction: PredictionEntity, userId: string): void {
     if (prediction.userId !== userId) {
       throw new NotFoundException(

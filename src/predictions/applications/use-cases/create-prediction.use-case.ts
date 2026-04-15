@@ -7,6 +7,7 @@ import {
   Logger,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -15,6 +16,7 @@ import { PredictionResponseDto } from '../dto/prediction-response.dto';
 import { PredictionMapper } from '../../domains/mappers/prediction.mapper';
 import { PREDICTION_REPOSITORY_TOKEN } from '../../infrastructures/repositories/prediction.repository.interface';
 import type { IPredictionRepository } from '../../infrastructures/repositories/prediction.repository.interface';
+import { PredictionCreatedEvent } from '../../infrastructures/events/prediction-created.event';
 import { AiIntegrationOrchestrator } from '../../../ai-integration/applications/orchestrator/ai-integration.orchestrator';
 import { AiIntegrationDomainService } from '../../../ai-integration/domains/services/ai-integration-domain.service';
 import { AiHealthService } from '../../../ai-integration/infrastructures/health/ai-health.service';
@@ -34,11 +36,10 @@ export class CreatePredictionUseCase {
     @Inject(PREDICTION_REPOSITORY_TOKEN)
     private readonly predictionRepo: IPredictionRepository,
 
-    private readonly mapper:  PredictionMapper,
-    private readonly config:  ConfigService,
+    private readonly mapper:       PredictionMapper,
+    private readonly config:       ConfigService,
+    private readonly eventEmitter: EventEmitter2,
 
-    // forwardRef diperlukan karena AiIntegrationModule dan PredictionModule
-    // saling import satu sama lain (circular dependency).
     @Inject(forwardRef(() => AiIntegrationOrchestrator))
     private readonly aiOrchestrator: AiIntegrationOrchestrator,
 
@@ -49,15 +50,6 @@ export class CreatePredictionUseCase {
     private readonly aiHealthService: AiHealthService,
   ) {}
 
-  /**
-   * SYNCHRONOUS FLOW:
-   *   1. Cek AI online
-   *   2. Simpan record PENDING
-   *   3. Download image dari storage
-   *   4. Kirim ke AI & tunggu hasilnya
-   *   5. DB terupdate SUCCESS/FAILED oleh ProcessPredictionUseCase
-   *   6. Fetch ulang dari DB → return hasil lengkap ke client
-   */
   async execute(
     dto:                 CreatePredictionDto,
     authenticatedUserId: string,
@@ -98,6 +90,16 @@ export class CreatePredictionUseCase {
 
     this.logger.log(`[Create] Record dibuat → id=${prediction.id}`);
 
+    this.eventEmitter.emit(
+      'prediction.created',
+      new PredictionCreatedEvent(
+        prediction.id,
+        authenticatedUserId.trim(),
+        dto.imageUrl,
+        new Date(),
+      ),
+    );
+
     // ── Step 2: Download image ─────────────────────────────────────────────
     let buffer:   Buffer;
     let mimeType: string;
@@ -120,8 +122,6 @@ export class CreatePredictionUseCase {
     }
 
     // ── Step 3: Kirim ke AI & tunggu ──────────────────────────────────────
-    // ProcessPredictionUseCase (dipanggil oleh orchestrator) akan memanggil
-    // predictionRepo.updateResult() atau markAsFailed() secara langsung.
     this.logger.log(`[Create] Mengirim ke AI → id=${prediction.id}`);
 
     await this.aiOrchestrator.process({

@@ -80,20 +80,6 @@ export class PredictionController {
     @Body() dto: CreatePredictionDto,
     @CurrentUser('sub') authenticatedUserId: string,
   ): Promise<PredictionResponseDto> {
-    /**
-     * FIX [BUG — Empty userId]:
-     *
-     * Guard eksplisit di controller — layer pertahanan pertama.
-     *
-     * Jika `authenticatedUserId` undefined/kosong di sini, artinya
-     * `request.user.sub` tidak ter-set oleh JwtStrategy. Kemungkinan
-     * penyebab:
-     *   1. dist/ stale — jwt.strategy.js masih return { userId: ... }
-     *      bukan { sub: ... }. Fix: hapus dist/ dan rebuild.
-     *   2. Token tidak mengandung claim 'sub' yang valid.
-     *
-     * Log semua keys request.user untuk membantu debug.
-     */
     if (!authenticatedUserId || authenticatedUserId.trim().length === 0) {
       this.logger.error(
         '[PredictionController] authenticatedUserId kosong dari @CurrentUser("sub"). ' +

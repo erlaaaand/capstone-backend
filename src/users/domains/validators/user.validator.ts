@@ -34,7 +34,6 @@ export class UserValidator {
     plainPassword: string,
     hashedPassword: string,
   ): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const isMatch = await compare(plainPassword, hashedPassword);
 
     if (!isMatch) {

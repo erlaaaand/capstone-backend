@@ -21,10 +21,6 @@ import { StorageModule } from './storage/storage.module';
 import { AiIntegrationModule } from './ai-integration/ai-integration.module';
 
 // ── Guards ────────────────────────────────────────────────────
-// FIX [BUG-4]: JwtAuthGuard di-register sebagai APP_GUARD global
-// sehingga semua controller (UserController, PredictionController, dll.)
-// bisa menggunakannya tanpa perlu import AuthModule satu per satu.
-// Route publik dilindungi dengan @Public() decorator.
 import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
 
 @Module({
@@ -106,10 +102,6 @@ import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
     }),
 
     // ── 6. Feature Modules ────────────────────────────────────
-    // FIX [BUG-1]: AuthModule dan StorageModule wajib di-import agar
-    // AuthController, StorageController, dan semua route-nya terdaftar.
-    // Sebelumnya kedua modul ini tidak di-import → seluruh endpoint
-    // /auth/* dan /storage/* mengembalikan 404.
     AuthModule,
     StorageModule,
     UserModule,
@@ -124,13 +116,6 @@ import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-
-    // FIX [BUG-4]: JwtAuthGuard sebagai global guard.
-    // Dengan ini, setiap controller langsung terlindungi JWT tanpa
-    // perlu @UseGuards(JwtAuthGuard) di setiap controller.
-    // Route yang tidak butuh auth diberi @Public() decorator.
-    // Circular dependency UserModule↔AuthModule tereleminasi karena
-    // JwtAuthGuard tidak lagi di-inject per-module.
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
