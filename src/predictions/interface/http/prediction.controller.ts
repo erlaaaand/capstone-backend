@@ -1,13 +1,32 @@
 // src/predictions/interface/http/prediction.controller.ts
 import {
-  Body, Controller, Get, HttpCode, HttpStatus,
-  Param, ParseUUIDPipe, Post, Query, UseFilters, UseGuards,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  InternalServerErrorException,
+  Logger,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import {
-  ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse,
-  ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags,
-  ApiUnauthorizedResponse, ApiUnprocessableEntityResponse,
-  ApiForbiddenResponse, ApiServiceUnavailableResponse,
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
+  ApiForbiddenResponse,
+  ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
 import { PredictionOrchestrator } from '../../applications/orchestrator/prediction.orchestrator';
 import { CreatePredictionDto } from '../../applications/dto/create-prediction.dto';
@@ -26,6 +45,8 @@ import { CurrentUser } from '../../../auth/interface/decorators/current-user.dec
 @UseFilters(PredictionExceptionFilter)
 @UseGuards(JwtAuthGuard)
 export class PredictionController {
+  private readonly logger = new Logger(PredictionController.name);
+
   constructor(private readonly orchestrator: PredictionOrchestrator) {}
 
   // ── Create ─────────────────────────────────────────────────────────────────
@@ -33,7 +54,7 @@ export class PredictionController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Buat prediksi baru',
+    summary:     'Buat prediksi baru',
     description:
       '**Flow lengkap:**\n\n' +
       '1. Upload gambar → `POST /api/v1/storage/upload` → dapat `imageUrl`\n' +
@@ -41,28 +62,16 @@ export class PredictionController {
       '3. Prediksi dibuat dengan status `PENDING`\n' +
       '4. AI service memproses secara async (biasanya < 5 detik)\n' +
       '5. Ambil hasil → `GET /api/v1/predictions/:id`\n\n' +
-      '**userId diambil otomatis dari JWT** — tidak perlu dikirim di body.\n\n' +
-      '**Catatan**: Endpoint ini memerlukan AI service dalam kondisi ONLINE. ' +
-      'Cek status AI terlebih dahulu via `GET /api/v1/ai/status/current`.',
+      '**userId diambil otomatis dari JWT** — tidak perlu dikirim di body.',
     operationId: 'predictionsCreate',
   })
   @ApiCreatedResponse({
-    type: PredictionResponseDto,
-    description:
-      'Prediksi berhasil dibuat dengan status `PENDING`. ' +
-      'Poll `GET /api/v1/predictions/:id` hingga status berubah ke `SUCCESS` atau `FAILED`.',
+    type:        PredictionResponseDto,
+    description: 'Prediksi berhasil dibuat dengan status `PENDING`.',
   })
   @ApiUnauthorizedResponse({ description: 'Token tidak valid atau expired.' })
   @ApiUnprocessableEntityResponse({
-    description:
-      'imageUrl tidak valid, mengarah ke jaringan internal (SSRF protection), atau format tidak didukung.',
-    schema: {
-      example: {
-        statusCode: 422,
-        message: 'imageUrl tidak valid: protokol tidak diizinkan atau mengarah ke alamat jaringan internal yang diblokir.',
-        error: 'UnprocessableEntityException',
-      },
-    },
+    description: 'imageUrl tidak valid atau mengarah ke jaringan internal.',
   })
   @ApiServiceUnavailableResponse({
     description: 'AI service sedang offline atau model belum siap.',
@@ -71,6 +80,35 @@ export class PredictionController {
     @Body() dto: CreatePredictionDto,
     @CurrentUser('sub') authenticatedUserId: string,
   ): Promise<PredictionResponseDto> {
+    /**
+     * FIX [BUG — Empty userId]:
+     *
+     * Guard eksplisit di controller — layer pertahanan pertama.
+     *
+     * Jika `authenticatedUserId` undefined/kosong di sini, artinya
+     * `request.user.sub` tidak ter-set oleh JwtStrategy. Kemungkinan
+     * penyebab:
+     *   1. dist/ stale — jwt.strategy.js masih return { userId: ... }
+     *      bukan { sub: ... }. Fix: hapus dist/ dan rebuild.
+     *   2. Token tidak mengandung claim 'sub' yang valid.
+     *
+     * Log semua keys request.user untuk membantu debug.
+     */
+    if (!authenticatedUserId || authenticatedUserId.trim().length === 0) {
+      this.logger.error(
+        '[PredictionController] authenticatedUserId kosong dari @CurrentUser("sub"). ' +
+          'Kemungkinan dist/ stale. Jalankan: rmdir /s /q dist && npm run build',
+      );
+      throw new InternalServerErrorException(
+        'Gagal mengidentifikasi user dari token. ' +
+          'Coba logout, login kembali, dan pastikan server di-rebuild.',
+      );
+    }
+
+    this.logger.debug(
+      `[PredictionController] create → userId=${authenticatedUserId}`,
+    );
+
     return this.orchestrator.create(dto, authenticatedUserId);
   }
 
@@ -79,11 +117,8 @@ export class PredictionController {
   @Get('user/me')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Daftar prediksi saya',
-    description:
-      'Mengambil semua prediksi milik user yang sedang login dengan pagination.\n\n' +
-      'Diurutkan dari terbaru ke terlama.\n\n' +
-      '**userId diambil otomatis dari JWT.**',
+    summary:     'Daftar prediksi saya',
+    description: 'Mengambil semua prediksi milik user yang sedang login dengan pagination.',
     operationId: 'predictionsGetMyList',
   })
   @ApiQuery({
@@ -95,14 +130,19 @@ export class PredictionController {
     description: 'Jumlah item per halaman, maksimum 50 (default: 10)',
   })
   @ApiOkResponse({
-    type: PaginatedPredictionResponseDto,
-    description: 'List prediksi berhasil diambil dengan informasi pagination.',
+    type:        PaginatedPredictionResponseDto,
+    description: 'List prediksi berhasil diambil.',
   })
   @ApiUnauthorizedResponse({ description: 'Token tidak valid.' })
   getAllByUser(
     @CurrentUser('sub') authenticatedUserId: string,
     @Query() query: FindPredictionsQueryDto,
   ): Promise<PaginatedPredictionResponseDto> {
+    if (!authenticatedUserId || authenticatedUserId.trim().length === 0) {
+      throw new InternalServerErrorException(
+        'Gagal mengidentifikasi user dari token. Coba logout dan login kembali.',
+      );
+    }
     return this.orchestrator.getAllByUser(authenticatedUserId, query);
   }
 
@@ -111,41 +151,30 @@ export class PredictionController {
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Detail prediksi',
+    summary:     'Detail prediksi',
     description:
       'Mengambil detail prediksi berdasarkan ID.\n\n' +
-      '**Hanya bisa mengakses prediksi milik sendiri.**\n\n' +
-      '**Cara cek hasil async:**\n' +
-      '1. Buat prediksi → status `PENDING`\n' +
-      '2. Panggil endpoint ini setiap 2–5 detik\n' +
-      '3. Tunggu status berubah ke `SUCCESS` (hasil tersedia) atau `FAILED` (lihat `errorMessage`)\n\n' +
-      '**Status yang mungkin:**\n' +
-      '- `PENDING` — sedang diproses oleh AI\n' +
-      '- `SUCCESS` — klasifikasi berhasil, lihat `varietyCode`, `varietyName`, `confidenceScore`\n' +
-      '- `FAILED` — gagal, lihat `errorMessage` untuk detail',
+      '**Hanya bisa mengakses prediksi milik sendiri.**',
     operationId: 'predictionsGetById',
   })
   @ApiParam({
-    name:    'id',
-    type:    'string',
-    format:  'uuid',
-    description: 'UUID prediksi (didapat dari response create)',
-    example: '550e8400-e29b-41d4-a716-446655440000',
+    name: 'id', type: 'string', format: 'uuid',
+    description: 'UUID prediksi',
+    example:     '550e8400-e29b-41d4-a716-446655440000',
   })
-  @ApiOkResponse({
-    type: PredictionResponseDto,
-    description: 'Detail prediksi. Periksa field `status`, `varietyCode`, dan `confidenceScore`.',
-  })
+  @ApiOkResponse({ type: PredictionResponseDto })
   @ApiUnauthorizedResponse({ description: 'Token tidak valid.' })
   @ApiForbiddenResponse({ description: 'Prediksi ini bukan milik Anda.' })
-  @ApiNotFoundResponse({
-    description: 'Prediksi tidak ditemukan.',
-    schema: { example: { statusCode: 404, message: "Prediction dengan id 'xxx' tidak ditemukan.", error: 'NotFoundException' } },
-  })
+  @ApiNotFoundResponse({ description: 'Prediksi tidak ditemukan.' })
   getById(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentUser('sub') requestingUserId: string,
   ): Promise<PredictionResponseDto> {
+    if (!requestingUserId || requestingUserId.trim().length === 0) {
+      throw new InternalServerErrorException(
+        'Gagal mengidentifikasi user dari token. Coba logout dan login kembali.',
+      );
+    }
     return this.orchestrator.getById(id, requestingUserId);
   }
 }
