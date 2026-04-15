@@ -24,23 +24,40 @@ export class ProcessPredictionUseCase {
     private readonly predictionRepo: IPredictionRepository,
 
     private readonly validator: AiResponseValidator,
-    private readonly mapper: AiResponseMapper,
+    private readonly mapper:    AiResponseMapper,
   ) {}
 
   async execute(request: AiPredictRequestDto): Promise<void> {
     const { predictionId } = request;
 
+    this.logger.log(
+      `[ProcessPrediction] START → id=${predictionId}, ` +
+        `imageSize=${request.imageBuffer.length} bytes, ` +
+        `mime=${request.imageMimeType}`,
+    );
+
     try {
-      // 1. Kirim ke FastAPI
+      // ── Step 1: Kirim ke FastAPI ─────────────────────────────────────────
+      this.logger.debug(`[ProcessPrediction] Mengirim ke FastAPI → id=${predictionId}`);
+
       const rawResult = await this.aiAdapter.predict(request);
 
-      // 2. Validasi response domain (variety_code, confidence_score, variety_name)
+      this.logger.debug(
+        `[ProcessPrediction] Respon FastAPI diterima → ` +
+          `id=${predictionId}, ` +
+          `variety=${rawResult.varietyCode}, ` +
+          `confidence=${rawResult.confidenceScore}, ` +
+          `enhanced=${rawResult.imageEnhanced}, ` +
+          `inferenceMs=${rawResult.inferenceTimeMs}`,
+      );
+
+      // ── Step 2: Validasi response ────────────────────────────────────────
       this.validator.assertValidResult(rawResult);
 
-      // 3. Map ke payload repository
+      // ── Step 3: Map ke payload repository ───────────────────────────────
       const payload = this.mapper.toPredictionResultPayload(rawResult);
 
-      // 4. Update prediction record → SUCCESS
+      // ── Step 4: Update prediction record → SUCCESS ───────────────────────
       await this.predictionRepo.updateResult(predictionId, payload);
 
       this.logger.log(
@@ -49,23 +66,22 @@ export class ProcessPredictionUseCase {
           `confidence=${payload.confidenceScore}, ` +
           `enhanced=${payload.imageEnhanced}`,
       );
+
     } catch (err: unknown) {
-      // Narrow `unknown` ke string reason sebelum digunakan
-      const reason =
-        err instanceof Error ? err.message : 'Unknown error dari AI service';
+      const reason = err instanceof Error
+        ? err.message
+        : 'Unknown error dari AI service';
 
       this.logger.error(
         `[ProcessPrediction] FAILED → id=${predictionId}, reason=${reason}`,
+        err instanceof Error ? err.stack : undefined,
       );
 
-      // Fire-and-forget markAsFailed — jangan re-throw agar event listener tidak crash
       await this.predictionRepo
         .markAsFailed(predictionId, reason)
         .catch((markErr: unknown) => {
-          // Narrow markErr sebelum logging — mencegah ESLint no-unsafe-argument
           const markErrMessage =
             markErr instanceof Error ? markErr.message : String(markErr);
-
           this.logger.error(
             `[ProcessPrediction] Gagal markAsFailed → id=${predictionId}, ` +
               `reason=${markErrMessage}`,
