@@ -1,5 +1,5 @@
 // src/ai-integration/applications/use-cases/process-prediction.use-case.ts
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { AiPredictRequestDto } from '../dto/ai-predict-request.dto';
 import { AiResponseMapper } from '../../domains/mappers/ai-response.mapper';
 import { AiResponseValidator } from '../../domains/validators/ai-response.validator';
@@ -72,10 +72,19 @@ export class ProcessPredictionUseCase {
         ? err.message
         : 'Unknown error dari AI service';
 
-      this.logger.error(
-        `[ProcessPrediction] FAILED → id=${predictionId}, reason=${reason}`,
-        err instanceof Error ? err.stack : undefined,
-      );
+      // 👇 PERBAIKAN LOGGING ERROR ADA DI SINI 👇
+      if (err instanceof UnprocessableEntityException) {
+        // Jika error validasi/bisnis (contoh: bukan gambar durian), gunakan .warn tanpa stack trace
+        this.logger.warn(
+          `[ProcessPrediction] FAILED → id=${predictionId}, reason=${reason}`
+        );
+      } else {
+        // Jika error sistem yang tidak terduga, gunakan .error dengan stack trace
+        this.logger.error(
+          `[ProcessPrediction] SYSTEM ERROR → id=${predictionId}, reason=${reason}`,
+          err instanceof Error ? err.stack : undefined,
+        );
+      }
 
       await this.predictionRepo
         .markAsFailed(predictionId, reason)
