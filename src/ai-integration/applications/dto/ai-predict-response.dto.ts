@@ -24,12 +24,17 @@ export class AiRawPredictionDto {
 
 /**
  * Representasi LENGKAP response FastAPI /api/v1/predict (HTTP 200).
- * Semua field di-type agar tidak ada data kontrak yang terbuang.
+ * Disesuaikan dengan Pydantic schema `PredictionResponse` di FastAPI.
+ *
+ * FIX: Tambah field `preprocessing_time_ms` yang ada di FastAPI
+ * tapi sebelumnya tidak di-type di sini, sehingga tidak bisa
+ * di-akses secara type-safe oleh adapter.
  */
 export class AiPredictResponseDto {
   success: boolean = false;
   prediction: AiRawPredictionDto = new AiRawPredictionDto();
   all_varieties: AiVarietyScoreDto[] = [];
+  /** Keys adalah variety_name (display name), bukan variety_code */
   confidence_scores: Record<string, number> = {};
   image_enhanced: boolean = false;
   inference_time_ms: number = 0;
@@ -41,6 +46,9 @@ export class AiPredictResponseDto {
 /**
  * Representasi internal setelah response FastAPI di-mapping ke domain NestJS.
  * Menggunakan camelCase sesuai konvensi NestJS/TypeScript.
+ *
+ * FIX: Tambah `preprocessingTimeMs` untuk menyimpan waktu preprocessing
+ * dari FastAPI — berguna untuk monitoring performa.
  */
 export class AiPredictResultDto {
   predictionId: string = '';
@@ -52,4 +60,5 @@ export class AiPredictResultDto {
   confidenceScore: number = 0;
   imageEnhanced: boolean = false;
   inferenceTimeMs: number = 0;
+  preprocessingTimeMs: number = 0;
 }

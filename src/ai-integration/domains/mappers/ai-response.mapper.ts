@@ -8,18 +8,22 @@ export class AiResponseMapper {
   /**
    * Memetakan AiPredictResultDto (internal domain) ke PredictionResultPayload
    * yang digunakan untuk update database via IPredictionRepository.
+   *
+   * FIX: `inferenceTimeMs` sekarang digabung dengan `preprocessingTimeMs`
+   * untuk menyimpan total waktu AI processing di DB, sehingga client
+   * mendapat gambaran lengkap performa pipeline.
    */
   toPredictionResultPayload(
     result: AiPredictResultDto,
   ): PredictionResultPayload {
     return {
-      varietyCode: result.varietyCode.trim().toUpperCase(),
-      varietyName: result.varietyName.trim(),
-      localName: result.localName.trim(),
-      origin: result.origin.trim(),
-      description: result.description.trim(),
+      varietyCode:     result.varietyCode.trim().toUpperCase(),
+      varietyName:     result.varietyName.trim(),
+      localName:       result.localName.trim(),
+      origin:          result.origin.trim(),
+      description:     result.description.trim(),
       confidenceScore: this.normalizeScore(result.confidenceScore),
-      imageEnhanced: result.imageEnhanced,
+      imageEnhanced:   result.imageEnhanced,
       inferenceTimeMs: result.inferenceTimeMs,
     };
   }
