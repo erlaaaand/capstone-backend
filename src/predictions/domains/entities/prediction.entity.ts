@@ -64,6 +64,22 @@ export class PredictionEntity {
   @Column({ type: 'float', nullable: true, default: null })
   inferenceTimeMs: number | null = null;
 
+  // ── BARU: semua varietas dengan skor (disimpan sebagai JSON) ──
+  @Column({ type: 'json', nullable: true, default: null })
+  allVarieties: {
+    varietyCode: string;
+    varietyName: string;
+    confidenceScore: number;
+  }[] | null = null;
+
+  // ── BARU: versi model AI yang digunakan ──
+  @Column({ type: 'varchar', length: 20, nullable: true, default: null })
+  modelVersion: string | null = null;
+
+  // ── BARU: request ID dari FastAPI untuk tracing ──
+  @Column({ type: 'varchar', length: 36, nullable: true, default: null })
+  aiRequestId: string | null = null;
+
   // ── Image Storage ────────────────────────────────────────────
   @Column({ type: 'varchar', length: 512, nullable: false })
   imageUrl: string = '';

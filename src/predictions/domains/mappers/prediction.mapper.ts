@@ -7,23 +7,24 @@ import { PredictionEntity } from '../entities/prediction.entity';
 export class PredictionMapper {
   toResponseDto(entity: PredictionEntity): PredictionResponseDto {
     return {
-      id: entity.id,
-      userId: entity.userId,
-      // ── AI Result — Core ──────────────────────────────────────
-      varietyCode: entity.varietyCode,
-      varietyName: entity.varietyName,
-      localName: entity.localName,
-      origin: entity.origin,
-      description: entity.description,
+      id:              entity.id,
+      userId:          entity.userId,
+      varietyCode:     entity.varietyCode,
+      varietyName:     entity.varietyName,
+      localName:       entity.localName,
+      origin:          entity.origin,
+      description:     entity.description,
       confidenceScore: entity.confidenceScore,
-      // ── AI Result — Metadata ──────────────────────────────────
-      imageEnhanced: entity.imageEnhanced,
+      imageEnhanced:   entity.imageEnhanced,
       inferenceTimeMs: entity.inferenceTimeMs,
-      // ── Image & Status ────────────────────────────────────────
-      imageUrl: entity.imageUrl,
-      status: entity.status,
-      errorMessage: entity.errorMessage,
-      createdAt: entity.createdAt,
+      imageUrl:        entity.imageUrl,
+      status:          entity.status,
+      errorMessage:    entity.errorMessage,
+      createdAt:       entity.createdAt,
+      // ── BARU ──
+      allVarieties: entity.allVarieties ?? null,
+      modelVersion: entity.modelVersion,
+      aiRequestId:  entity.aiRequestId,
     };
   }
 

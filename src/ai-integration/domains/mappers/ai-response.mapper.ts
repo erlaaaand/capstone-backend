@@ -16,7 +16,17 @@ export class AiResponseMapper {
       description:     result.description.trim(),
       confidenceScore: this.normalizeScore(result.confidenceScore),
       imageEnhanced:   result.imageEnhanced,
+      // ── inferenceTimeMs sekarang menyimpan total gabungan ──
       inferenceTimeMs: result.inferenceTimeMs + result.preprocessingTimeMs,
+      // ── BARU: semua varietas, score masing-masing di-normalize ──
+      allVarieties: result.allVarieties.map((v) => ({
+        varietyCode:     v.varietyCode.trim().toUpperCase(),
+        varietyName:     v.varietyName.trim(),
+        confidenceScore: this.normalizeScore(v.confidenceScore),
+      })),
+      // ── BARU: metadata ──
+      modelVersion: result.modelVersion,
+      aiRequestId:  result.aiRequestId,
     };
   }
 

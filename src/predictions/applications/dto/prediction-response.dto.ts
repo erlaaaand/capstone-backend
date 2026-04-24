@@ -2,6 +2,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PredictionStatus } from '../../domains/entities/prediction.entity';
 
+// ── BARU: DTO untuk satu varietas di array ──
+export class VarietyScoreResponseDto {
+  @ApiProperty({ example: 'D2' })
+  varietyCode: string = '';
+
+  @ApiProperty({ example: 'Dato Nina' })
+  varietyName: string = '';
+
+  @ApiProperty({ example: 0.3812, minimum: 0, maximum: 1 })
+  confidenceScore: number = 0;
+}
+
 export class PredictionResponseDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'UUID prediksi' })
   id: string = '';
@@ -53,6 +65,27 @@ export class PredictionResponseDto {
 
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   createdAt: Date = new Date();
+
+  @ApiPropertyOptional({
+    type:        [VarietyScoreResponseDto],
+    description: 'Skor kepercayaan semua varietas yang dikenali model',
+    nullable:    true,
+  })
+  allVarieties: VarietyScoreResponseDto[] | null = null;
+
+  @ApiPropertyOptional({
+    example:     '1.0.0',
+    description: 'Versi model AI yang memproses gambar ini',
+    nullable:    true,
+  })
+  modelVersion: string | null = null;
+
+  @ApiPropertyOptional({
+    example:     '1d80556a-e906-4729-976a-0951038dfcc9',
+    description: 'Request ID dari FastAPI untuk keperluan tracing/debugging',
+    nullable:    true,
+  })
+  aiRequestId: string | null = null;
 }
 
 export class PaginatedPredictionResponseDto {
@@ -71,3 +104,4 @@ export class PaginatedPredictionResponseDto {
   @ApiProperty({ example: 5, description: 'Total halaman' })
   totalPages: number = 0;
 }
+

@@ -84,7 +84,7 @@ export class PredictionRepository implements IPredictionRepository {
     return created;
   }
 
-  async updateResult(
+   async updateResult(
     id:     string,
     result: PredictionResultPayload,
   ): Promise<PredictionEntity> {
@@ -97,6 +97,10 @@ export class PredictionRepository implements IPredictionRepository {
       confidenceScore: result.confidenceScore,
       imageEnhanced:   result.imageEnhanced,
       inferenceTimeMs: result.inferenceTimeMs,
+      // ── BARU ──
+      allVarieties:    result.allVarieties,
+      modelVersion:    result.modelVersion,
+      aiRequestId:     result.aiRequestId,
       status:          PredictionStatus.SUCCESS,
     });
 

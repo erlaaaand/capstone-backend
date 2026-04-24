@@ -7,7 +7,6 @@ import { AiPredictResultDto } from '../../applications/dto/ai-predict-response.d
  * D101, D13, D197, D2, D200, D24
  */
 const VALID_VARIETY_CODES = new Set<string>([
-  'D101',
   'D13',
   'D197',
   'D2',

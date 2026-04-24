@@ -97,16 +97,25 @@ export class AiHttpAdapter implements IAiHttpAdapter {
     );
 
     return {
-      predictionId:       request.predictionId,
-      varietyCode:        prediction.variety_code,
-      varietyName:        prediction.variety_name,
-      localName:          prediction.local_name,
-      origin:             prediction.origin,
-      description:        prediction.description,
-      confidenceScore:    prediction.confidence_score,
-      imageEnhanced:      response.image_enhanced,
-      inferenceTimeMs:    response.inference_time_ms,
+      predictionId:        request.predictionId,
+      varietyCode:         prediction.variety_code,
+      varietyName:         prediction.variety_name,
+      localName:           prediction.local_name,
+      origin:              prediction.origin,
+      description:         prediction.description,
+      confidenceScore:     prediction.confidence_score,
+      imageEnhanced:       response.image_enhanced,
+      inferenceTimeMs:     response.inference_time_ms,
       preprocessingTimeMs: response.preprocessing_time_ms ?? 0,
+      // ── BARU: map all_varieties dari FastAPI ke camelCase ──
+      allVarieties: (response.all_varieties ?? []).map((v) => ({
+        varietyCode:     v.variety_code,
+        varietyName:     v.variety_name,
+        confidenceScore: v.confidence_score,
+      })),
+      // ── BARU: metadata ──
+      modelVersion: response.model_version ?? null,
+      aiRequestId:  response.request_id ?? null,
     };
   }
 
