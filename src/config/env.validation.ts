@@ -120,6 +120,20 @@ class EnvironmentVariables {
   @IsOptional()
   STORAGE_LOCAL_DIR: string = 'uploads';
 
+  // ── Market Intelligence ──────────────────────────────────────
+  /**
+   * Secret untuk verifikasi HMAC-SHA256 dari Market Intelligence Agent.
+   * Digunakan oleh HmacSignatureGuard di endpoint POST /ai-integration/market-report.
+   * Harus sama persis dengan nilai yang dikonfigurasi di sisi agent Python.
+   * Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   */
+  @IsString()
+  @IsNotEmpty({ message: 'NESTJS_INTERNAL_API_KEY wajib diisi' })
+  @MinLength(32, {
+    message: 'NESTJS_INTERNAL_API_KEY minimal 32 karakter untuk keamanan HMAC-SHA256',
+  })
+  NESTJS_INTERNAL_API_KEY: string = 'change_me_min_32_chars_internal_api_key!!';
+
   // ── Throttler ────────────────────────────────────────────────
   @IsNumber()
   @Min(1000)

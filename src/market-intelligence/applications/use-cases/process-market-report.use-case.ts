@@ -6,7 +6,7 @@ import { MarketPriceValidator } from '../../domains/validators/market-price.vali
 import { MarketPriceMapper } from '../../domains/mappers/market-price.mapper';
 import { MarketIntelligenceDomainService } from '../../domains/services/market-intelligence-domain.service';
 import {
-  IMarketPriceRepository,
+  type IMarketPriceRepository,
   MARKET_PRICE_REPOSITORY_TOKEN,
 } from '../../infrastructures/repositories/market-price.repository.interface';
 import { MarketReportIngestedEvent } from '../../infrastructures/events/market-report-ingested.event';
