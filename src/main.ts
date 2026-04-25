@@ -6,7 +6,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { GlobalExceptionFilter } from './shared/common/filters/global-exception.filter';
 import { setupSwagger } from './swagger.config';
 
 const JSON_BODY_LIMIT = '1mb';

@@ -9,23 +9,23 @@ import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
-import { validate } from './config/env.validation';
-import { UserEntity } from './users/domains/entities/user.entity';
-import { PredictionEntity } from './predictions/domains/entities/prediction.entity';
+import { validate } from './shared/config/env.validation';
+import { UserEntity } from './identity/users/domains/entities/user.entity';
+import { PredictionEntity } from './ai-core/predictions/domains/entities/prediction.entity';
 // [FIX BUG-06] Import MarketPriceEntity agar TypeORM dapat membuat tabel market_prices
 import { MarketPriceEntity } from './market-intelligence/domains/entities/market-price.entity';
 
 // ── Feature Modules ───────────────────────────────────────────
-import { UserModule } from './users/user.module';
-import { AuthModule } from './auth/auth.module';
-import { PredictionModule } from './predictions/prediction.module';
-import { StorageModule } from './storage/storage.module';
-import { AiIntegrationModule } from './ai-integration/ai-integration.module';
+import { UserModule } from './identity/users/user.module';
+import { AuthModule } from './identity/auth/auth.module';
+import { PredictionModule } from './ai-core/predictions/prediction.module';
+import { StorageModule } from './shared/storage/storage.module';
+import { AiIntegrationModule } from './ai-core/ai-integration/ai-integration.module';
 // [FIX BUG-05] Import MarketIntelligenceModule agar endpoint /api/v1/ai-integration/market-report terdaftar
 import { MarketIntelligenceModule } from './market-intelligence/market-intelligence.module';
 
 // ── Guards ────────────────────────────────────────────────────
-import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
+import { JwtAuthGuard } from './identity/auth/interface/guards/jwt-auth.guard';
 
 @Module({
   imports: [
