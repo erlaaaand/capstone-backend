@@ -12,20 +12,19 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { validate } from './shared/config/env.validation';
 import { UserEntity } from './identity/users/domains/entities/user.entity';
 import { PredictionEntity } from './ai-core/predictions/domains/entities/prediction.entity';
-// [FIX BUG-06] Import MarketPriceEntity agar TypeORM dapat membuat tabel market_prices
 import { MarketPriceEntity } from './market-intelligence/domains/entities/market-price.entity';
 
-// ── Feature Modules ───────────────────────────────────────────
 import { UserModule } from './identity/users/user.module';
 import { AuthModule } from './identity/auth/auth.module';
 import { PredictionModule } from './ai-core/predictions/prediction.module';
 import { StorageModule } from './shared/storage/storage.module';
 import { AiIntegrationModule } from './ai-core/ai-integration/ai-integration.module';
-// [FIX BUG-05] Import MarketIntelligenceModule agar endpoint /api/v1/ai-integration/market-report terdaftar
 import { MarketIntelligenceModule } from './market-intelligence/market-intelligence.module';
 
 // ── Guards ────────────────────────────────────────────────────
 import { JwtAuthGuard } from './identity/auth/interface/guards/jwt-auth.guard';
+
+import { ProductModule } from './ecommerce/products/product.module';
 
 @Module({
   imports: [
@@ -113,11 +112,8 @@ import { JwtAuthGuard } from './identity/auth/interface/guards/jwt-auth.guard';
     UserModule,
     PredictionModule,
     AiIntegrationModule,
-    // [FIX BUG-05] MarketIntelligenceModule didaftarkan agar:
-    //   - Controller POST /api/v1/ai-integration/market-report terdaftar
-    //   - HmacSignatureGuard aktif memvalidasi request dari agent Python
-    //   - MarketPriceRepository tersedia untuk menyimpan data harga
     MarketIntelligenceModule,
+    ProductModule,
   ],
 
   providers: [
