@@ -63,14 +63,16 @@ File \`swagger.json\` juga otomatis di-generate ke root project saat server star
 ---
 
 ### Varietas Durian yang Didukung
-| Kode | Nama Populer |
-|---|---|
-| D101 | Durian lokal varietas D101 |
-| D13 | Durian D13 |
-| D197 | Musang King / Mao Shan Wang |
-| D2 | Durian D2 |
-| D200 | Durian D200 |
-| D24 | Sultan / D24 |
+[FIX BUG-10] Tabel diperbarui: D101 dihapus karena tidak ada dalam training data model v10.
+Hanya 5 varietas resmi yang didukung (sesuai CLASS_NAMES di .env dan data/class_indices.json).
+
+| Kode | Nama Populer | Asal |
+|---|---|---|
+| D13 | Golden Bun | Malaysia (Johor) |
+| D197 | Musang King / Mao Shan Wang / Raja Kunyit | Malaysia (Kelantan) |
+| D2 | Dato Nina | Malaysia (Melaka) |
+| D200 | Black Thorn / Duri Hitam / Ochee | Malaysia (Penang) |
+| D24 | Sultan / Bukit Merah | Malaysia (Perak / Selangor) |
 
 Confidence score dikembalikan dalam rentang **0.0000 – 1.0000** (4 desimal).
 `,
@@ -99,6 +101,10 @@ Confidence score dikembalikan dalam rentang **0.0000 – 1.0000** (4 desimal).
       'AI Health',
       'Status koneksi dan kesiapan model AI — **tidak memerlukan JWT**',
     )
+    .addTag(
+      'Market Intelligence',
+      'Endpoint internal untuk ingest laporan harga pasar dari agent Python — memerlukan HMAC signature',
+    )
     // ── Servers ────────────────────────────────────────────────
     .addServer('http://localhost:3001', 'Development')
     .addServer('https://api.yourapp.com', 'Production')
@@ -116,9 +122,7 @@ Confidence score dikembalikan dalam rentang **0.0000 – 1.0000** (4 desimal).
       filter: true,
       showRequestDuration: true,
       tryItOutEnabled: true,
-      // Tampilkan tombol "Authorize" di semua endpoint secured
       displayOperationId: false,
-      // URL alternatif untuk download JSON/YAML spec
       urls: [
         { url: '/api/docs-json', name: 'OpenAPI JSON' },
         { url: '/api/docs-yaml', name: 'OpenAPI YAML' },
@@ -132,16 +136,11 @@ Confidence score dikembalikan dalam rentang **0.0000 – 1.0000** (4 desimal).
       .swagger-ui .info .title { color: #1a7a4a; }
       .swagger-ui .scheme-container { background: #f8fffe; border: 1px solid #c3e6d8; }
     `,
-    // Expose JSON & YAML endpoints (built-in NestJS Swagger behavior):
-    // GET /api/docs-json → OpenAPI 3.0 JSON
-    // GET /api/docs-yaml → OpenAPI 3.0 YAML
     jsonDocumentUrl: 'api/docs-json',
     yamlDocumentUrl: 'api/docs-yaml',
   });
 
   // ── Save JSON spec to file (non-production) ────────────────
-  // File ini bisa di-import ke Postman Collection v2.1 atau Insomnia.
-  // Juga berguna untuk CI/CD: diff spec file untuk mendeteksi breaking changes.
   if (process.env.NODE_ENV !== 'production') {
     const outputPath = path.join(process.cwd(), 'swagger.json');
     try {

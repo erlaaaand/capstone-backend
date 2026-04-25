@@ -12,6 +12,8 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { validate } from './config/env.validation';
 import { UserEntity } from './users/domains/entities/user.entity';
 import { PredictionEntity } from './predictions/domains/entities/prediction.entity';
+// [FIX BUG-06] Import MarketPriceEntity agar TypeORM dapat membuat tabel market_prices
+import { MarketPriceEntity } from './market-intelligence/domains/entities/market-price.entity';
 
 // ── Feature Modules ───────────────────────────────────────────
 import { UserModule } from './users/user.module';
@@ -19,6 +21,8 @@ import { AuthModule } from './auth/auth.module';
 import { PredictionModule } from './predictions/prediction.module';
 import { StorageModule } from './storage/storage.module';
 import { AiIntegrationModule } from './ai-integration/ai-integration.module';
+// [FIX BUG-05] Import MarketIntelligenceModule agar endpoint /api/v1/ai-integration/market-report terdaftar
+import { MarketIntelligenceModule } from './market-intelligence/market-intelligence.module';
 
 // ── Guards ────────────────────────────────────────────────────
 import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
@@ -84,7 +88,9 @@ import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
           username: config.getOrThrow<string>('DB_USERNAME'),
           password: config.getOrThrow<string>('DB_PASSWORD'),
           database: config.getOrThrow<string>('DB_DATABASE'),
-          entities: [UserEntity, PredictionEntity],
+          // [FIX BUG-06] Tambah MarketPriceEntity agar tabel market_prices dibuat
+          // oleh TypeORM synchronize saat development / migration saat production
+          entities: [UserEntity, PredictionEntity, MarketPriceEntity],
           synchronize: isSynchronizeEnabled,
           logging: nodeEnv === 'development' ? ['query', 'error'] : ['error'],
           timezone: '+07:00',
@@ -107,6 +113,11 @@ import { JwtAuthGuard } from './auth/interface/guards/jwt-auth.guard';
     UserModule,
     PredictionModule,
     AiIntegrationModule,
+    // [FIX BUG-05] MarketIntelligenceModule didaftarkan agar:
+    //   - Controller POST /api/v1/ai-integration/market-report terdaftar
+    //   - HmacSignatureGuard aktif memvalidasi request dari agent Python
+    //   - MarketPriceRepository tersedia untuk menyimpan data harga
+    MarketIntelligenceModule,
   ],
 
   providers: [
