@@ -24,7 +24,14 @@ import { MarketIntelligenceModule } from './market-intelligence/market-intellige
 // ── Guards ────────────────────────────────────────────────────
 import { JwtAuthGuard } from './identity/auth/interface/guards/jwt-auth.guard';
 
+// ecommerce modules
+import { CartModule } from './ecommerce/carts/carts.module';
 import { ProductModule } from './ecommerce/products/product.module';
+
+// ecommerce entity
+import { CartItemEntity } from './ecommerce/carts/domains/entities/cart-item.entity';
+import { CartEntity } from './ecommerce/carts/domains/entities/cart.entity';
+import { ProductEntity } from './ecommerce/products/domains/entities/product.entity';
 
 @Module({
   imports: [
@@ -89,7 +96,7 @@ import { ProductModule } from './ecommerce/products/product.module';
           database: config.getOrThrow<string>('DB_DATABASE'),
           // [FIX BUG-06] Tambah MarketPriceEntity agar tabel market_prices dibuat
           // oleh TypeORM synchronize saat development / migration saat production
-          entities: [UserEntity, PredictionEntity, MarketPriceEntity],
+          entities: [UserEntity, PredictionEntity, MarketPriceEntity, CartItemEntity, CartEntity, ProductEntity],
           synchronize: isSynchronizeEnabled,
           logging: nodeEnv === 'development' ? ['query', 'error'] : ['error'],
           timezone: '+07:00',
@@ -114,6 +121,7 @@ import { ProductModule } from './ecommerce/products/product.module';
     AiIntegrationModule,
     MarketIntelligenceModule,
     ProductModule,
+    CartModule,
   ],
 
   providers: [
