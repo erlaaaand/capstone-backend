@@ -21,7 +21,7 @@ import { MarketReportDto } from '../../applications/dto/market-report.dto';
 import { MarketReportIngestResponseDto } from '../../applications/dto/market-report-ingest-response.dto';
 import { HmacSignatureGuard } from '../../infrastructures/guards/hmac-signature.guard';
 import { MarketIntelligenceExceptionFilter } from '../filters/market-intelligence-exception.filter';
-import { Public } from '../../../auth/interface/decorators/public.decorator';
+import { Public } from '../../../../identity/auth/interface/decorators/public.decorator';
 
 @ApiTags('Market Intelligence')
 @Controller('ai-integration')

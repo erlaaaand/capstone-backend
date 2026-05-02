@@ -7,7 +7,6 @@ import { MarketPriceValidator } from './domains/validators/market-price.validato
 import { MarketPriceMapper } from './domains/mappers/market-price.mapper';
 import { MarketIntelligenceDomainService } from './domains/services/market-intelligence-domain.service';
 
-import { MarketReportDto } from './applications/dto/market-report.dto';
 import { ProcessMarketReportUseCase } from './applications/use-cases/process-market-report.use-case';
 import { MarketIntelligenceOrchestrator } from './applications/orchestrator/market-intelligence.orchestrator';
 
